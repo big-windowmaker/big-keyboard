@@ -261,11 +261,11 @@ testa, empacota e roda o `namcap` a cada push (o artefato do CI é feito do comm
 > dockapp atual, empacote a cópia local:
 
 ```sh
-cd pkgbuild && BIG_KEYBOARD_SOURCE="git+file://$PWD/..#commit=$(git -C .. rev-parse HEAD)" makepkg -si
+cd pkgbuild && BIG_KEYBOARD_SOURCE="git+file://$PWD/..#commit=$(git -C .. rev-parse HEAD)" makepkg -sif
 ```
 
 O makepkg clona o repositório local: o pacote leva só o que já foi **commitado**, e o `#commit=` fixa
-o commit atual, mesmo com um espelho antigo em cache. Se antes você compilou com a fonte padrão, apague o
+o commit atual, mesmo com um espelho antigo em cache, e o `-f` refaz o pacote, que mantém a mesma versão. Se antes você compilou com a fonte padrão, apague o
 espelho `pkgbuild/big-keyboard/` (e `pkgbuild/src/`); senão o makepkg para com “não é um clone de”.
 
 | Tipo | Pacotes |
