@@ -253,11 +253,19 @@ aplicativo (`io.github.big_windowmaker.BigKeyboard`), que é a única fonte do e
 ## Instalar, compilar e testar
 
 O pacote `big-keyboard` do Arch/Manjaro está em [`pkgbuild/PKGBUILD`](pkgbuild/PKGBUILD); o CI compila,
-testa, empacota e roda o `namcap` a cada push. Para empacotar a cópia local:
+testa, empacota e roda o `namcap` a cada push (o artefato do CI é feito do commit, com o dockapp atual).
+
+> [!NOTE]
+> Sem `BIG_KEYBOARD_SOURCE`, o PKGBUILD compila a tag `v0.1.0`, que ainda tem o dockapp antigo (sem o
+> módulo `bk-dock` nem os testes dele). Os estados e os cliques descritos acima vêm do `main`. Para o
+> dockapp atual, empacote a cópia local:
 
 ```sh
 cd pkgbuild && BIG_KEYBOARD_SOURCE="git+file://$PWD/.." makepkg -si
 ```
+
+O makepkg clona o repositório local: o pacote leva só o que já foi **commitado** (no ramo padrão do
+clone). Faça o commit das mudanças antes de rodar o comando.
 
 | Tipo | Pacotes |
 |---|---|
