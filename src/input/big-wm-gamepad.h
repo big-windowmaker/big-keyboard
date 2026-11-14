@@ -74,10 +74,12 @@ typedef struct bwg {
     unsigned generation;    /* muda quando um controle entra ou sai */
     double deadzone;        /* analógicos: abaixo disso é centro (0..1) */
     int no_stick_nav;       /* o analógico esquerdo não move o cursor (modo apontar) */
+    int last;               /* índice do controle que mandou o último evento */
 } bwg;
 
-/* O primeiro controle ligado (para o modo de dois analógicos), ou NULL. */
-const bwg_pad *bwg_first(const bwg *g);
+/* O controle usado por último (com vários ligados, o que a pessoa mexe), ou
+ * NULL sem nenhum. */
+const bwg_pad *bwg_active(const bwg *g);
 
 /* Abre os controles presentes e o monitor do udev. Retorna o número de
  * controles (0 é normal: o monitor avisa quando um for ligado), -1 sem udev. */

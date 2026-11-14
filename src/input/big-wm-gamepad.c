@@ -273,6 +273,7 @@ static int
 read_pad(bwg *g, int i, long long now, enum bwg_action *out, int n, int max)
 {
     bwg_pad *p = &g->pad[i];
+    g->last = i;
     struct input_event ev[64];
     for (;;) {
         ssize_t r = read(p->fd, ev, sizeof ev);
@@ -371,9 +372,11 @@ read_pad(bwg *g, int i, long long now, enum bwg_action *out, int n, int max)
 }
 
 const bwg_pad *
-bwg_first(const bwg *g)
+bwg_active(const bwg *g)
 {
-    return g->npads > 0 ? &g->pad[0] : NULL;
+    if (g->npads <= 0)
+        return NULL;
+    return g->last >= 0 && g->last < g->npads ? &g->pad[g->last] : &g->pad[0];
 }
 
 int

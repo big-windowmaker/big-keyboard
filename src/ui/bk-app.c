@@ -109,7 +109,7 @@ pad_dispatch(BkApp *app, const enum bwg_action *a, int n)
             bk_osk_pad_action(app->osk, a[i]);
         }
     if (app->osk)
-        bk_osk_pad_sticks(app->osk, bwg_first(&app->pad), app->cfg.deadzone);
+        bk_osk_pad_sticks(app->osk, bwg_active(&app->pad), app->cfg.deadzone);
     bk_settings_pad_event(app);
 }
 

@@ -44,7 +44,8 @@ typedef struct {
     gboolean pad;
     gboolean pressed, hover, menu_pending, dragged;
     int px, py, pxr, pyr;
-    guint32 last_click;
+    guint32 last_click, menu_time;
+    int menu_x, menu_y;
     gboolean dark;
 } Dock;
 
@@ -322,7 +323,28 @@ show_menu(Dock *d)
     gtk_menu_shell_append(GTK_MENU_SHELL(m), gtk_separator_menu_item_new());
     item(m, d, "Sai_r do Big WM Virtual Keyboard", "quit", NULL);
     gtk_widget_show_all(m);
-    gtk_menu_popup_at_pointer(GTK_MENU(m), NULL);
+    g_signal_connect(m, "selection-done", G_CALLBACK(gtk_widget_destroy), NULL);
+    /* O gatilho: um clique na janela raiz (uma janela do GDK, ao contrário
+     * da do dockapp), onde está o ponteiro, com o ponteiro do assento; sem
+     * ele o GTK não sabe ancorar o menu e não o abre. */
+    GdkEvent *trigger = gdk_event_new(GDK_BUTTON_PRESS);
+    trigger->button.window = g_object_ref(gdk_get_default_root_window());
+    trigger->button.button = 3;
+    trigger->button.time = d->menu_time;
+    trigger->button.x = trigger->button.x_root = d->menu_x;
+    trigger->button.y = trigger->button.y_root = d->menu_y;
+    GdkSeat *seat = gdk_display_get_default_seat(gdk_display_get_default());
+    if (seat)
+        gdk_event_set_device(trigger, gdk_seat_get_pointer(seat));
+    gtk_menu_popup_at_pointer(GTK_MENU(m), trigger);
+    gdk_event_free(trigger);
+}
+
+static gboolean
+show_menu_idle(gpointer data)
+{
+    show_menu(data);
+    return G_SOURCE_REMOVE;
 }
 
 /* ---- eventos X ------------------------------------------------------------- */
@@ -400,7 +422,10 @@ x_filter(GdkXEvent *xev, GdkEvent *event, gpointer data)
     case ButtonRelease:
         if (ev->xbutton.button == Button3 && d->menu_pending) {
             d->menu_pending = FALSE;
-            show_menu(d);
+            d->menu_time = (guint32)ev->xbutton.time;
+            d->menu_x = ev->xbutton.x_root;
+            d->menu_y = ev->xbutton.y_root;
+            g_idle_add(show_menu_idle, d); /* depois de soltar: a pegada do clique já acabou */
         } else if (ev->xbutton.button == Button1 && d->pressed) {
             d->pressed = FALSE;
             redraw(d);

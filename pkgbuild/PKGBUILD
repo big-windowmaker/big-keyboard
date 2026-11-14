@@ -1,0 +1,46 @@
+# Maintainer: Rafael Ruscher <rruscher@gmail.com>
+# Big WindowMaker: https://github.com/big-windowmaker
+#
+# Big WM Virtual Keyboard: teclado na tela (ABNT2, US, US internacional),
+# digitação pelo controle físico (estilo SteamOS), controle na tela de toque
+# com controle virtual (uinput) e o dockapp metade teclado, metade controle.
+# X11 (XTest) e Wayland (zwp_virtual_keyboard_v1, layer-shell).
+#
+# Para compilar a cópia local do repositório:
+#   BIG_KEYBOARD_SOURCE="git+file://$PWD/.." makepkg
+pkgname=big-keyboard
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Big WindowMaker: teclado na tela, digitação pelo controle e controle na tela de toque (X11 e Wayland)"
+arch=('x86_64')
+url="https://github.com/big-windowmaker/big-keyboard"
+license=('GPL-2.0-or-later')
+depends=('glibc' 'glib2' 'gtk3' 'cairo' 'pango' 'libx11' 'libxtst' 'libxkbcommon' 'wayland'
+	'gtk-layer-shell' 'systemd-libs' 'hicolor-icon-theme')
+makedepends=('git' 'meson')
+optdepends=(
+	'steam-devices: acesso ao /dev/uinput para o controle virtual (regra uaccess)'
+	'game-devices-udev: alternativa ao steam-devices para o /dev/uinput'
+	'big-wm-lockscreen: o teclado com controle na tela de bloqueio'
+)
+source=("big-keyboard::${BIG_KEYBOARD_SOURCE:-git+$url.git#tag=v$pkgver}")
+sha256sums=('SKIP')
+
+build() {
+	arch-meson big-keyboard build
+	meson compile -C build
+}
+
+check() {
+	# test-vpad pula (77) sem acesso ao /dev/uinput, como num chroot de build
+	meson test -C build --print-errorlogs
+}
+
+package() {
+	meson install -C build --destdir "$pkgdir" --no-rebuild
+	cd big-keyboard
+	install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+	for f in docs/*.md; do
+		install -Dm644 "$f" "$pkgdir/usr/share/doc/$pkgname/${f##*/}"
+	done
+}

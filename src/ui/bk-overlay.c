@@ -103,7 +103,8 @@ update_input_region(BkOverlay *ov)
 static void
 tb_rect(BkOverlay *ov, int i, double *x, double *y, double *w, double *h)
 {
-    double bw = 104, bh = 26, total = TB_N * (bw + 4) - 4;
+    /* cabe na tela: botões mais estreitos em telas pequenas */
+    double bw = MIN(104, (ov->w - 24.0) / TB_N - 4), bh = 26, total = TB_N * (bw + 4) - 4;
     *x = (ov->w - total) / 2 + i * (bw + 4);
     *y = 30;
     *w = bw;
@@ -143,7 +144,9 @@ draw_control(BkOverlay *ov, cairo_t *cr, int i)
     double d = bk_ctl_px(&ov->lay, c, ov->h), r = d / 2, cx = c->x * ov->w, cy = c->y * ov->h;
     gboolean down = held(ov, i);
     double a = ov->lay.opacity * (c->enabled ? 1 : 0.35);
-    /* relevo OPENSTEP num disco: luz em cima à esquerda, sombra embaixo */
+    /* relevo OPENSTEP num disco: luz em cima à esquerda, sombra embaixo
+     * (caminho novo: senão o arco puxa uma linha do texto anterior) */
+    cairo_new_path(cr);
     cairo_pattern_t *g = cairo_pattern_create_linear(cx - r, cy - r, cx + r, cy + r);
     double top = down ? 0.45 : 0.86, bot = down ? 0.70 : 0.42;
     cairo_pattern_add_color_stop_rgba(g, 0, top, top, top, a);
@@ -158,6 +161,7 @@ draw_control(BkOverlay *ov, cairo_t *cr, int i)
     if (c->kind == BKC_STICK || c->kind == BKC_DPAD) {
         /* área de movimento e o pino (centro, ou onde o dedo está) */
         cairo_set_source_rgba(cr, 0, 0, 0, a * 0.5);
+        cairo_new_path(cr);
         cairo_arc(cr, cx, cy, r * c->deadzone, 0, 2 * M_PI);
         cairo_stroke(cr);
     }
@@ -215,7 +219,7 @@ on_draw(GtkWidget *w, cairo_t *cr, gpointer data)
             cairo_rectangle(cr, x, y, bw, bh);
             cairo_fill(cr);
             bk_draw_bevel(cr, x, y, bw, bh, TRUE, FALSE);
-            label(cr, tb_label[i], x + bw / 2, y + bh / 2, 11, 0, 0, 0);
+            label(cr, tb_label[i], x + bw / 2, y + bh / 2, bw < 90 ? 9.5 : 11, 0, 0, 0);
         }
         label(cr, ov->status, ov->w / 2.0, y + bh + 12, 11, 0, 0, 0);
     }
@@ -428,15 +432,19 @@ on_touch(GtkWidget *w, GdkEventTouch *ev, gpointer data)
     return TRUE;
 }
 
-/* O mouse vale como um dedo (telas sem toque, testes). */
+/* O mouse vale como um dedo (telas sem toque, testes): uma identidade só
+ * para o toque do mouse, a mesma no clique, no movimento e ao soltar. */
+static const int mouse_seq = 1;
+
 static gboolean
 on_button(GtkWidget *w, GdkEventButton *ev, gpointer data)
 {
     (void)w;
     BkOverlay *ov = data;
+    if (g_getenv("BIG_KEYBOARD_DEBUG_INPUT"))
+        g_printerr("overlay button %d type %d at %.0f,%.0f\n", ev->button, ev->type, ev->x, ev->y);
     if (ev->button != 1 || (ev->type != GDK_BUTTON_PRESS && ev->type != GDK_BUTTON_RELEASE))
         return FALSE;
-    static const int mouse_seq = 1;
     if (ov->edit) {
         if (ev->type == GDK_BUTTON_PRESS)
             edit_press(ov, ev->x, ev->y);
@@ -455,7 +463,8 @@ on_motion(GtkWidget *w, GdkEventMotion *ev, gpointer data)
 {
     (void)w;
     BkOverlay *ov = data;
-    static const int mouse_seq = 1;
+    if (g_getenv("BIG_KEYBOARD_DEBUG_INPUT"))
+        g_printerr("overlay motion state %x at %.0f,%.0f\n", ev->state, ev->x, ev->y);
     if (!(ev->state & GDK_BUTTON1_MASK))
         return FALSE;
     if (ov->edit)

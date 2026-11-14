@@ -293,7 +293,7 @@ on_tester_draw(GtkWidget *w, cairo_t *cr, gpointer data)
     cairo_set_source_rgb(cr, 0.667, 0.667, 0.667);
     cairo_paint(cr);
     bk_draw_bevel(cr, 0, 0, W, H, FALSE, FALSE);
-    const bwg_pad *p = s->app->pad_open ? bwg_first(&s->app->pad) : NULL;
+    const bwg_pad *p = s->app->pad_open ? bwg_active(&s->app->pad) : NULL;
     double sx[2] = { p ? p->sx : 0, p ? p->rx : 0 }, sy[2] = { p ? p->sy : 0, p ? p->ry : 0 };
     for (int i = 0; i < 2; i++) {
         double cx = W * (i ? 0.72 : 0.28), cy = H * 0.5, r = H * 0.32;
