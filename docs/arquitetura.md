@@ -85,7 +85,10 @@ celular (dedos) → Moonlight (LiSendTouchEvent) → Sunshine (libvirtualhid)
 
 ## Segurança
 
-- Roda como o usuário; nenhuma regra udev própria. O `/dev/uinput` já é do
+- Roda como o usuário. Única regra udev própria
+  (`data/70-big-keyboard-remote-touch.rules`): `uaccess` só para o nó
+  virtual chamado exatamente `libvirtualhid Touchscreen` (o touchscreen do
+  Sunshine; a regra do Sunshine não o cobre). O `/dev/uinput` já é do
   usuário do assento ativo (`uaccess`) com o `steam-devices` ou o
   `game-devices-udev`; sem ele, só o controle virtual fica indisponível.
 - O leitor de controle aceita só dispositivos que o udev marca como joystick
