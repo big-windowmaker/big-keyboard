@@ -54,7 +54,7 @@ executable('big-keyboard',
   install: true)
 
 if x11.found() and gtk_x11.found()
-  executable('big-keyboard-dockapp', 'src/dockapp/bk-dockapp.c',
+  executable('big-keyboard-dockapp', 'src/dockapp/bk-dockapp.c', 'src/dockapp/bk-dock.c',
     dependencies: [gtk, gtk_x11, x11, gio, libm, dependency('cairo-xlib')], install: true)
 endif
 
@@ -63,3 +63,7 @@ subdir('data')
 foreach t : ['keys', 'geom', 'config', 'controls', 'vpad']
   test(t, executable('test-' + t, 'tests/test-@0@.c'.format(t), dependencies: core_dep))
 endforeach
+
+# Dockapp sem X11: geometria, cliques e desenho (pixels).
+test('dock', executable('test-dock', 'tests/test-dock.c', 'src/dockapp/bk-dock.c',
+  dependencies: [glib, dependency('cairo'), libm]))

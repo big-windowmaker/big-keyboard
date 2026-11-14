@@ -1,5 +1,14 @@
 # Changelog
 
+## Não lançado
+
+- Dockapp com dois botões de verdade: a tecla Enter ↵ abre/oculta o teclado
+  e o direcional abre/oculta o controle na tela; duplo clique numa metade
+  abre as configurações sem alternar nada; moldura de 1 px, símbolos
+  maiores, estados de hover, aperto, ativo e desabilitado, dica por metade.
+- Configurações > Geral > Modo de exibição: independente (padrão) ou
+  exclusivo (abrir o teclado oculta o controle na tela e vice-versa).
+
 ## 0.1.0 — 2026-11-14
 
 Primeira versão: teclado na tela (ABNT2, US, US internacional, painéis Fn e
