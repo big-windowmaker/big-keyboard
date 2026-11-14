@@ -16,7 +16,7 @@ libm = cc.find_library('m', required: false)
 core_inc = include_directories('src/core', 'src/input', 'src/gamepad')
 core = static_library('bkcore',
   'src/core/bk-keys.c', 'src/core/bk-geom.c', 'src/core/bk-config.c',
-  'src/input/big-wm-gamepad.c', 'src/gamepad/bk-vpad.c', 'src/gamepad/bk-controls.c',
+  'src/input/big-wm-gamepad.c', 'src/input/bk-rtouch.c', 'src/gamepad/bk-vpad.c', 'src/gamepad/bk-controls.c',
   include_directories: core_inc, dependencies: [glib, udev, libm])
 core_dep = declare_dependency(link_with: core, include_directories: core_inc, dependencies: [glib, udev, libm])
 
@@ -44,12 +44,20 @@ if wl_client.found() and gtk_wl.found() and layer_shell.found()
                           command: [scanner, 'client-header', '@INPUT@', '@OUTPUT@'])
   wl_src += custom_target('vk-code', input: xml, output: 'virtual-keyboard-unstable-v1-protocol.c',
                           command: [scanner, 'private-code', '@INPUT@', '@OUTPUT@'])
+  # xdg-output: o nome do conector de cada monitor (o GTK 3 não o dá no Wayland)
+  wl_protocols = dependency('wayland-protocols', version: '>= 1.20')
+  xo_xml = wl_protocols.get_variable('pkgdatadir') / 'unstable/xdg-output/xdg-output-unstable-v1.xml'
+  wl_src += custom_target('xo-client-header', input: xo_xml, output: 'xdg-output-unstable-v1-client-protocol.h',
+                          command: [scanner, 'client-header', '@INPUT@', '@OUTPUT@'])
+  wl_src += custom_target('xo-code', input: xo_xml, output: 'xdg-output-unstable-v1-protocol.c',
+                          command: [scanner, 'private-code', '@INPUT@', '@OUTPUT@'])
   app_deps += [wl_client, gtk_wl, layer_shell]
   app_args += '-DBK_HAVE_WAYLAND'
 endif
 
 executable('big-keyboard',
-  'src/ui/bk-app.c', 'src/ui/bk-osk.c', 'src/ui/bk-overlay.c', 'src/ui/bk-settings.c', 'src/input/bk-inject.c',
+  'src/ui/bk-app.c', 'src/ui/bk-osk.c', 'src/ui/bk-overlay.c', 'src/ui/bk-outputs.c', 'src/ui/bk-settings.c',
+  'src/input/bk-inject.c',
   wl_src, c_args: app_args, dependencies: app_deps, include_directories: include_directories('src/ui'),
   install: true)
 
@@ -60,6 +68,6 @@ endif
 
 subdir('data')
 
-foreach t : ['keys', 'geom', 'config', 'controls', 'vpad']
+foreach t : ['keys', 'geom', 'config', 'controls', 'vpad', 'rtouch']
   test(t, executable('test-' + t, 'tests/test-@0@.c'.format(t), dependencies: core_dep))
 endforeach

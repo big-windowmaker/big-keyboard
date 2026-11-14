@@ -24,6 +24,7 @@
 | `src/core/bk-geom.c` | retângulos das teclas; toque; modo apontar dos analógicos |
 | `src/core/bk-config.c` | preferências versionadas, validadas, gravação atômica |
 | `src/input/big-wm-gamepad.c` | controles físicos (udev, evdev, conexão a quente, repetição, navegação espacial) |
+| `src/input/bk-rtouch.c` | toque remoto: o touchscreen virtual do Sunshine (protocolo B, SYN_DROPPED, udev) |
 | `src/input/bk-inject.c` | entrega das teclas: virtual-keyboard (Wayland) e XTest (X11) |
 | `src/gamepad/bk-vpad.c` | controle virtual uinput |
 | `src/gamepad/bk-controls.c` | controle na tela: layout, toques, gravação |
@@ -51,7 +52,36 @@ Wayland e tem testes próprios (`tests/`).
    layer-shell / `_NET_WM_STRUT_PARTIAL`.
 4. O dockapp fala com o aplicativo pelas ações `org.gtk.Actions`
    (`toggle`, `settings`, `gamepad`, `hybrid`, `release`, `quit`) e segue os
-   estados `mode` e `pad-connected`.
+   estados `mode` e `pad-connected`. O Big Remote Play usa `set-gamepad`,
+   `remote-touch`, `overlay-output`, `release` e o estado
+   `remote-touch-status`.
+
+## Toque remoto (celular → Moonlight → Sunshine)
+
+```text
+celular (dedos) → Moonlight (LiSendTouchEvent) → Sunshine (libvirtualhid)
+  → touchscreen uinput "libvirtualhid Touchscreen" (0..19200 × 0..10800,
+    normalizado à imagem do monitor transmitido)
+  → bk-rtouch (leitura direta, EVIOCGRAB no modo exclusivo)
+  → bk_ctl_touch (um toque por slot) → bk-vpad (gamepad uinput) → jogo
+```
+
+- **Sem o compositor**: o wlmaker não entrega toques (o dispositivo de
+  toque é ignorado); no X11/KDE o toque viraria clique fora dos controles.
+  Ler o nó direto funciona igual em todos. Só enquanto o controle está
+  visível; fechado, o dispositivo volta ao desktop.
+- **Coordenadas**: o Moonlight normaliza o toque à área do vídeo (sem as
+  barras pretas do celular); o Sunshine põe isso nos eixos do dispositivo;
+  aqui `px = x / 19200 × largura do monitor`. Vale para qualquer proporção,
+  rotação ou escala fracionária, desde que o controle esteja no monitor
+  transmitido (`overlay-output`).
+- **Nada preso**: o dispositivo sumir solta tudo; `SYN_DROPPED` relê o
+  estado (`EVIOCGMTSLOTS`). O Sunshine 2026.914 mantém o touchscreen depois
+  que o cliente sai e não cancela os contatos ao desconectar; por isso o
+  Big Remote Play chama `release` quando a sessão cai, e um dedo solto à
+  força só volta a valer se o celular voltar a movê-lo.
+- **Vários Sunshine** (compartilhamento normal e a tela privada do Game
+  Window): todos os touchscreens remotos presentes são lidos.
 
 ## Segurança
 

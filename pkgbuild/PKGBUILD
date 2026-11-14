@@ -17,7 +17,7 @@ url="https://github.com/big-windowmaker/big-keyboard"
 license=('GPL-2.0-or-later')
 depends=('glibc' 'glib2' 'gtk3' 'cairo' 'pango' 'libx11' 'libxtst' 'libxkbcommon' 'wayland'
 	'gtk-layer-shell' 'systemd-libs' 'hicolor-icon-theme')
-makedepends=('git' 'meson')
+makedepends=('git' 'meson' 'wayland-protocols')
 optdepends=(
 	'steam-devices: acesso ao /dev/uinput para o controle virtual (regra uaccess)'
 	'game-devices-udev: alternativa ao steam-devices para o /dev/uinput'

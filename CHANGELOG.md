@@ -1,5 +1,23 @@
 # Changelog
 
+## Não lançado
+
+- **Toque remoto (celular pelo Moonlight)**: com o controle na tela aberto,
+  os dedos que chegam pelo touchscreen virtual do Sunshine
+  (`libvirtualhid Touchscreen`) são lidos direto do kernel, cada um como um
+  toque independente — direcional + botões, dois analógicos, gatilhos, cinco
+  dedos. Não depende do compositor (o wlmaker não entrega toques; no
+  X11/KDE eles virariam cliques). Modo `exclusive` (padrão: só o controle
+  recebe os toques), `shared` ou `off` (`--remote-touch`, ação
+  `remote-touch`).
+- **Monitor do controle na tela** (`--output=DP-1`, ação `overlay-output`):
+  o controle fica no monitor transmitido; o nome do conector vem do
+  xdg-output no Wayland e do RandR no X11.
+- Ações D-Bus `set-gamepad` (b) e estado `remote-touch-status`, para o
+  Big Remote Play.
+- Jogar ↔ editar solta o que estava apertado; o editor também aceita o
+  dedo remoto.
+
 ## 0.1.0 — 2026-11-14
 
 Primeira versão: teclado na tela (ABNT2, US, US internacional, painéis Fn e

@@ -39,6 +39,15 @@ main(void)
     bk_config_load(&d, f);
     char *bak = g_strdup_printf("%s.bak", f);
     CHECK(g_file_test(bak, G_FILE_TEST_EXISTS) && !strcmp(d.layout, "br"), "migração com .bak");
+    /* toque remoto e monitor: valores aceitos, o resto vira o padrão */
+    g_file_set_contents(f, "[General]\nVersion=1\n[VirtualGamepad]\nRemoteTouch=shared\nOutput=DP-1\n", -1, NULL);
+    bk_config_load(&d, f);
+    CHECK(!strcmp(d.remote_touch, "shared") && !strcmp(d.overlay_output, "DP-1"), "toque remoto e monitor lidos");
+    g_file_set_contents(f, "[General]\nVersion=1\n[VirtualGamepad]\nRemoteTouch=root\nOutput=../etc;rm\n", -1, NULL);
+    bk_config_load(&d, f);
+    CHECK(!strcmp(d.remote_touch, "exclusive") && !d.overlay_output[0], "valores estranhos recusados");
+    CHECK(bk_config_valid_output("HDMI-A-1") && bk_config_valid_output("") && !bk_config_valid_output("a b"),
+          "nomes de conector");
     /* arquivo ilegível: guardado como .invalid, padrões */
     g_file_set_contents(f, "isto não é um keyfile\x01[[[", -1, NULL);
     bk_config_load(&d, f);

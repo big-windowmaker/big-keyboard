@@ -34,6 +34,11 @@ typedef struct {
     double overlay_opacity; /* 0.15..1.0 */
     double overlay_scale;   /* 0.5..2.0 */
     char overlay_layout[64];
+    /* toque remoto (Moonlight → Sunshine): off, exclusive (só o controle
+     * recebe os toques), shared (fora dos controles o toque segue para o
+     * desktop, onde o compositor aceita toque) */
+    char remote_touch[12];
+    char overlay_output[32]; /* conector do monitor (DP-1); vazio: o principal */
     /* [Mouse] (teclado e mouse como controle) */
     double mouse_sens_x, mouse_sens_y; /* 0.1..10 */
     gboolean invert_y;
@@ -48,5 +53,7 @@ void bk_config_defaults(BkConfig *c);
 void bk_config_load(BkConfig *c, const char *path);
 gboolean bk_config_save(const BkConfig *c, const char *path, GError **err);
 char *bk_config_path(void);
+/* Nome de conector aceitável (letras, números, - _ .), ou vazio. */
+gboolean bk_config_valid_output(const char *name);
 
 #endif

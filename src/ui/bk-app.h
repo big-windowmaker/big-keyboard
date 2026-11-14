@@ -55,6 +55,13 @@ BkOverlay *bk_overlay_new(BkApp *app);
 void bk_overlay_set_visible(BkOverlay *ov, gboolean visible, gboolean edit);
 gboolean bk_overlay_visible(BkOverlay *ov);
 void bk_overlay_release(BkOverlay *ov);
+/* Toque remoto: off, idle (controle fechado), waiting (sem touchscreen do
+ * Sunshine), active (exclusivo), shared, busy (outro leitor agarrou),
+ * denied (sem permissão), error. */
+const char *bk_overlay_remote_state(BkOverlay *ov);
+void bk_overlay_remote_changed(BkOverlay *ov);
+void bk_overlay_output_changed(BkOverlay *ov);
+GdkMonitor *bk_monitor_by_name(GdkDisplay *dpy, const char *name);
 
 /* ---- configurações ------------------------------------------------------- */
 void bk_settings_show(BkApp *app, const char *page);

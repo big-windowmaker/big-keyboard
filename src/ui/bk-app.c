@@ -5,7 +5,14 @@
  * dockapp e para a linha de comando:
  *
  *   big-keyboard [--toggle|--show|--hide|--settings|--gamepad|--edit-gamepad
- *                 |--release|--daemon|--quit]
+ *                 |--release|--daemon|--quit] [--remote-touch=MODO] [--output=CONECTOR]
+ *
+ * Integração (Big Remote Play e outros), pelas ações org.gtk.Actions:
+ *   set-gamepad (b)           mostra/oculta o controle na tela (sem alternar)
+ *   remote-touch (s, estado)  off | exclusive | shared — toque do Moonlight
+ *   overlay-output (s, estado) conector do monitor transmitido ("" = principal)
+ *   remote-touch-status (estado) off, idle, waiting, active, shared, busy,
+ *                             denied, error (veja bk_overlay_remote_state)
  *
  * Fica residente (--daemon, no início da sessão) só com descritores
  * parados: o controle físico (udev + evdev) e o arquivo do tema. Nada de
@@ -79,6 +86,9 @@ bk_app_update_state(BkApp *app)
     gboolean gp = app->overlay && bk_overlay_visible(app->overlay);
     const char *mode = kb && gp ? "hybrid" : kb ? "keyboard" : gp ? "gamepad" : "hidden";
     g_simple_action_set_state(G_SIMPLE_ACTION(a), g_variant_new_string(mode));
+    GAction *rt = g_action_map_lookup_action(G_ACTION_MAP(app->gtk), "remote-touch-status");
+    if (rt && app->overlay)
+        g_simple_action_set_state(G_SIMPLE_ACTION(rt), g_variant_new_string(bk_overlay_remote_state(app->overlay)));
     GAction *p = g_action_map_lookup_action(G_ACTION_MAP(app->gtk), "pad-connected");
     if (p)
         g_simple_action_set_state(G_SIMPLE_ACTION(p), g_variant_new_boolean(app->pad_open && app->pad.npads > 0));
@@ -245,6 +255,54 @@ act_edit_gamepad(GSimpleAction *a, GVariant *p, gpointer data)
 }
 
 static void
+act_set_gamepad(GSimpleAction *a, GVariant *p, gpointer data)
+{
+    (void)a;
+    BkApp *app = data;
+    bk_overlay_set_visible(app->overlay, g_variant_get_boolean(p), FALSE);
+}
+
+static void
+save_config(BkApp *app)
+{
+    GError *err = NULL;
+    if (!bk_config_save(&app->cfg, NULL, &err)) {
+        g_warning("configurações: %s", err->message);
+        g_clear_error(&err);
+    }
+}
+
+static void
+act_remote_touch(GSimpleAction *a, GVariant *v, gpointer data)
+{
+    BkApp *app = data;
+    const char *mode = g_variant_get_string(v, NULL);
+    if (strcmp(mode, "off") && strcmp(mode, "exclusive") && strcmp(mode, "shared"))
+        return; /* valor desconhecido: o estado não muda */
+    g_simple_action_set_state(a, v);
+    if (strcmp(app->cfg.remote_touch, mode)) {
+        g_strlcpy(app->cfg.remote_touch, mode, sizeof app->cfg.remote_touch);
+        save_config(app);
+    }
+    bk_overlay_remote_changed(app->overlay);
+}
+
+static void
+act_overlay_output(GSimpleAction *a, GVariant *v, gpointer data)
+{
+    BkApp *app = data;
+    const char *name = g_variant_get_string(v, NULL);
+    if (!bk_config_valid_output(name))
+        return;
+    g_simple_action_set_state(a, v);
+    if (strcmp(app->cfg.overlay_output, name)) {
+        g_strlcpy(app->cfg.overlay_output, name, sizeof app->cfg.overlay_output);
+        save_config(app);
+        bk_overlay_output_changed(app->overlay);
+    }
+}
+
+static void
 act_hybrid(GSimpleAction *a, GVariant *p, gpointer data)
 {
     (void)a;
@@ -310,10 +368,20 @@ on_startup(GApplication *g, gpointer data)
         { "quit", act_quit, NULL, NULL, NULL, { 0 } },
         { "mode", act_mode, NULL, "'hidden'", NULL, { 0 } },
         { "pad-connected", act_mode, NULL, "false", NULL, { 0 } },
+        { "set-gamepad", act_set_gamepad, "b", NULL, NULL, { 0 } },
+        { "remote-touch", NULL, "s", "'exclusive'", act_remote_touch, { 0 } },
+        { "overlay-output", NULL, "s", "''", act_overlay_output, { 0 } },
+        { "remote-touch-status", act_mode, NULL, "'idle'", NULL, { 0 } },
     };
     g_action_map_add_action_entries(G_ACTION_MAP(g), entries, G_N_ELEMENTS(entries), app);
+    GAction *rta = g_action_map_lookup_action(G_ACTION_MAP(g), "remote-touch");
+    g_simple_action_set_state(G_SIMPLE_ACTION(rta), g_variant_new_string(app->cfg.remote_touch));
+    GAction *oa = g_action_map_lookup_action(G_ACTION_MAP(g), "overlay-output");
+    g_simple_action_set_state(G_SIMPLE_ACTION(oa), g_variant_new_string(app->cfg.overlay_output));
     app->osk = bk_osk_new(app);
     app->overlay = bk_overlay_new(app);
+    if (!strcmp(app->cfg.remote_touch, "off"))
+        bk_overlay_remote_changed(app->overlay);
     pad_apply_config(app);
     char *theme = g_build_filename(g_get_user_config_dir(), "big-wm", "theme", NULL);
     GFile *f = g_file_new_for_path(theme);
@@ -333,6 +401,12 @@ on_command_line(GApplication *g, GApplicationCommandLine *cl, gpointer data)
 {
     BkApp *app = data;
     GVariantDict *o = g_application_command_line_get_options_dict(cl);
+    /* ajustes primeiro (podem vir junto de --gamepad) */
+    const char *rmode = NULL, *output = NULL;
+    if (g_variant_dict_lookup(o, "remote-touch", "&s", &rmode))
+        g_action_group_change_action_state(G_ACTION_GROUP(g), "remote-touch", g_variant_new_string(rmode));
+    if (g_variant_dict_lookup(o, "output", "&s", &output))
+        g_action_group_change_action_state(G_ACTION_GROUP(g), "overlay-output", g_variant_new_string(output));
     const char *acts[] = { "show", "hide", "toggle", "gamepad", "edit-gamepad", "hybrid", "release", "quit" };
     for (size_t i = 0; i < G_N_ELEMENTS(acts); i++)
         if (g_variant_dict_contains(o, acts[i])) {
@@ -345,7 +419,7 @@ on_command_line(GApplication *g, GApplicationCommandLine *cl, gpointer data)
         bk_settings_show(app, page && *page ? page : NULL);
         return 0;
     }
-    if (g_variant_dict_contains(o, "daemon"))
+    if (g_variant_dict_contains(o, "daemon") || rmode || output)
         return 0;
     /* sem opções (menu de aplicativos): abre ou fecha o teclado */
     g_action_group_activate_action(G_ACTION_GROUP(g), "toggle", NULL);
@@ -372,6 +446,10 @@ main(int argc, char **argv)
         { "hybrid", 0, 0, G_OPTION_ARG_NONE, NULL, "Teclado e controle juntos", NULL },
         { "release", 0, 0, G_OPTION_ARG_NONE, NULL, "Soltar todas as teclas e botões (emergência)", NULL },
         { "daemon", 0, 0, G_OPTION_ARG_NONE, NULL, "Iniciar oculto (início da sessão)", NULL },
+        { "remote-touch", 0, 0, G_OPTION_ARG_STRING, NULL,
+          "Toque do celular pelo Moonlight no controle na tela: off, exclusive (só o controle), shared", "MODO" },
+        { "output", 0, 0, G_OPTION_ARG_STRING, NULL, "Monitor do controle na tela (conector, como DP-1; vazio = principal)",
+          "CONECTOR" },
         { "quit", 0, 0, G_OPTION_ARG_NONE, NULL, "Encerrar", NULL },
         { NULL, 0, 0, 0, NULL, NULL, NULL },
     };

@@ -43,6 +43,20 @@ no visual NeXTSTEP/OPENSTEP do Window Maker. X11 (Window Maker) e Wayland
 | Configurações | duplo clique no dockapp, ou `big-keyboard --settings [--page=gamepad]` |
 | Controle na tela | menu do dockapp, ou `big-keyboard --gamepad` (`--edit-gamepad` para editar) |
 | Soltar tudo (emergência) | menu do dockapp, ou `big-keyboard --release` |
+| Controle no monitor transmitido | `big-keyboard --output=DP-1` (vazio = principal) |
+| Toque do celular pelo Moonlight | `big-keyboard --remote-touch=exclusive` (padrão), `shared` ou `off` |
+
+### Jogar pelo celular (Moonlight + Sunshine)
+
+Com o controle na tela aberto, os dedos do celular apertam os botões dele
+de verdade, vários ao mesmo tempo. Precisa de um Moonlight que envie toques
+nativos (o Moonlight oficial para Android ainda não envia; veja o Big Remote
+Play, *Compartilhar → Preferências → Controles por toque*) e de um Sunshine
+com o libvirtualhid (2026 ou mais novo). O Sunshine cria o touchscreen
+virtual `libvirtualhid Touchscreen`; este programa o lê direto do kernel
+(sem depender do compositor), e no modo `exclusive` o agarra para que nada
+vire clique de mouse. O controle precisa estar no monitor transmitido
+(`--output`), porque o toque chega normalizado à imagem dele.
 
 O dockapp: `big-keyboard-dockapp` (arraste o ícone para o Dock ou o Clip).
 
@@ -89,6 +103,10 @@ o programa nunca roda como root.
 - O controle na tela fica acima de janelas em tela cheia só onde o
   compositor permite (camada OVERLAY do layer-shell; no X11, uma janela
   DOCK acima, com transparência só com um compositor como o picom).
+- Toque remoto: no Game Window (Big Remote Play) o celular vê só o jogo,
+  não o controle desenhado no desktop; use o controle na tela do próprio
+  Moonlight nesse modo. Touchscreens do Sunshine antigo (inputtino, "Touch
+  passthrough") não são aceitos: normalizavam ao desktop inteiro.
 - Teclado e mouse como controle para jogos **locais** ainda não existe; para
   o xCloud, o Better xCloud faz isso no navegador.
 - A tradução da interface ainda não está no gettext (textos em português).
