@@ -1,0 +1,2 @@
+option('x11', type: 'feature', value: 'auto', description: 'X11: XTest e o dockapp')
+option('wayland', type: 'feature', value: 'auto', description: 'Wayland: virtual-keyboard e layer-shell')

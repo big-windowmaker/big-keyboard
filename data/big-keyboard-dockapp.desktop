@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Big WM Virtual Keyboard (dockapp)
+Name[pt_BR]=Teclado virtual (dockapp)
+Comment=Dock-app for the Window Maker Dock and Clip
+Comment[pt_BR]=Dockapp para o Dock e o Clip do Window Maker
+Exec=big-keyboard-dockapp
+Icon=big-keyboard
+Terminal=false
+NoDisplay=true
+Categories=Utility;Accessibility;

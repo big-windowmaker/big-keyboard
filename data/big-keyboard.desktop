@@ -1,0 +1,25 @@
+[Desktop Entry]
+Type=Application
+Name=Big WM Virtual Keyboard
+Name[pt_BR]=Teclado virtual (Big WM)
+GenericName=On-screen keyboard
+GenericName[pt_BR]=Teclado na tela
+Comment=On-screen keyboard, controller typing and touch gamepad
+Comment[pt_BR]=Teclado na tela, digitação pelo controle e controle na tela de toque
+Exec=big-keyboard
+Icon=big-keyboard
+Terminal=false
+Categories=Utility;Accessibility;
+Keywords=keyboard;osk;gamepad;joystick;touch;teclado;controle;
+StartupNotify=false
+Actions=Settings;Gamepad;
+
+[Desktop Action Settings]
+Name=Settings
+Name[pt_BR]=Configurações
+Exec=big-keyboard --settings
+
+[Desktop Action Gamepad]
+Name=Touch gamepad
+Name[pt_BR]=Controle na tela
+Exec=big-keyboard --gamepad

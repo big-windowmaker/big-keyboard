@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later
+     Big WM Virtual Keyboard: metade teclado, metade controle, em relevo OPENSTEP. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect x="0" y="0" width="64" height="64" fill="#aaaaaa"/>
+  <path d="M0.5 63.5V0.5H63.5" fill="none" stroke="#ffffff"/>
+  <path d="M63.5 0.5V63.5H0.5" fill="none" stroke="#000000"/>
+  <path d="M62.5 1.5V62.5H1.5" fill="none" stroke="#555555"/>
+  <!-- visor da esquerda: teclado -->
+  <rect x="4" y="8" width="28" height="44" fill="#cccccc"/>
+  <path d="M4.5 51.5V8.5H31.5" fill="none" stroke="#555555"/>
+  <path d="M31.5 8.5V51.5H4.5" fill="none" stroke="#ffffff"/>
+  <g fill="#f2f2f2" stroke="#333333" stroke-width="0.8">
+    <rect x="7" y="16" width="4" height="4"/><rect x="12" y="16" width="4" height="4"/>
+    <rect x="17" y="16" width="4" height="4"/><rect x="22" y="16" width="4" height="4"/>
+    <rect x="9" y="22" width="4" height="4"/><rect x="14" y="22" width="4" height="4"/>
+    <rect x="19" y="22" width="4" height="4"/><rect x="24" y="22" width="4" height="4"/>
+    <rect x="7" y="28" width="4" height="4"/><rect x="12" y="28" width="4" height="4"/>
+    <rect x="17" y="28" width="4" height="4"/><rect x="22" y="28" width="4" height="4"/>
+    <rect x="11" y="34" width="14" height="4"/>
+  </g>
+  <rect x="7" y="44" width="4" height="4" fill="#30d030"/>
+  <!-- visor da direita: controle -->
+  <rect x="33" y="8" width="27" height="44" fill="#cccccc"/>
+  <path d="M33.5 51.5V8.5H59.5" fill="none" stroke="#555555"/>
+  <path d="M59.5 8.5V51.5H33.5" fill="none" stroke="#ffffff"/>
+  <path d="M40 23h12a7 7 0 0 1 0 14H40a7 7 0 0 1 0-14z" fill="#383840"/>
+  <path d="M37 29h6v2h-6zM39 27h2v6h-2z" fill="#dddddd"/>
+  <circle cx="51" cy="27.5" r="1.5" fill="#f2bf1a"/>
+  <circle cx="54" cy="30" r="1.5" fill="#d93326"/>
+  <circle cx="51" cy="32.5" r="1.5" fill="#33b340"/>
+  <circle cx="48" cy="30" r="1.5" fill="#3373e6"/>
+  <rect x="36" y="44" width="4" height="4" fill="#3a8cff"/>
+  <text x="12" y="61" font-family="Helvetica, Nimbus Sans, sans-serif" font-size="7" font-weight="bold" fill="#000000">KBD</text>
+  <text x="41" y="61" font-family="Helvetica, Nimbus Sans, sans-serif" font-size="7" font-weight="bold" fill="#000000">PAD</text>
+</svg>
