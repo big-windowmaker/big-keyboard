@@ -26,8 +26,13 @@ no visual NeXTSTEP/OPENSTEP do Window Maker. X11 (Window Maker) e Wayland
   teclado do SteamOS, e os gatilhos apertam.
 - **Controle na tela**: botões e analógicos semitransparentes sobre o jogo,
   multitoque, com editor visual; os jogos veem um gamepad comum (uinput).
-- **Dockapp** metade teclado, metade controle: clique abre/fecha, duplo
-  clique abre as configurações, botão direito traz o menu.
+- **Dockapp** com dois botões: a tecla **Enter ↵** abre/oculta o teclado e
+  o **direcional** abre/oculta o controle na tela (o botão da janela aberta
+  fica afundado; o centro do direcional acende com um controle físico
+  ligado). Duplo clique numa metade abre as configurações sem alternar nada;
+  botão direito traz o menu; parar o ponteiro mostra a dica.
+
+  ![Dockapp nos temas claro e escuro: normal, teclado aberto, controle aberto](docs/screenshots/dockapp.png)
 - **Xbox Cloud Gaming**: configura e orienta o uso do
   [Better xCloud](https://better-xcloud.github.io/) (teclado e mouse como
   controle no navegador), sem uma segunda emulação concorrente.
@@ -39,12 +44,14 @@ no visual NeXTSTEP/OPENSTEP do Window Maker. X11 (Window Maker) e Wayland
 
 | Ação | Como |
 |---|---|
-| Abrir/fechar o teclado | clique no dockapp, `big-keyboard`, ou **Select + Start** no controle |
+| Abrir/fechar o teclado | clique no Enter ↵ do dockapp, `big-keyboard`, ou **Select + Start** no controle |
 | Configurações | duplo clique no dockapp, ou `big-keyboard --settings [--page=gamepad]` |
-| Controle na tela | menu do dockapp, ou `big-keyboard --gamepad` (`--edit-gamepad` para editar) |
+| Controle na tela | clique no direcional do dockapp, ou `big-keyboard --gamepad` (`--edit-gamepad` para editar) |
 | Soltar tudo (emergência) | menu do dockapp, ou `big-keyboard --release` |
 
 O dockapp: `big-keyboard-dockapp` (arraste o ícone para o Dock ou o Clip).
+Teclado e controle abrem juntos; em **Configurações > Geral > Modo de
+exibição > Exclusivo**, abrir um oculta o outro.
 
 ### Controle no teclado
 
