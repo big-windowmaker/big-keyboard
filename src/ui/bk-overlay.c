@@ -16,6 +16,10 @@
  * normalizado à imagem desse monitor. O dispositivo sumir (fim da sessão,
  * queda da rede detectada pelo Sunshine) solta tudo o que os dedos seguravam.
  *
+ * O botão com o teclado, no alto ao centro, troca o controle pelo teclado
+ * ao soltar o dedo (o teclado tem o botão de volta); o controle virtual
+ * continua ligado, e o jogo não o vê sair.
+ *
  * Editor (--edit-gamepad): arrastar move, a alça do canto redimensiona,
  * guias aparecem quando um centro alinha com outro, e uma barra OPENSTEP
  * no alto adiciona, remove, troca a função, ajusta zona morta,
@@ -72,6 +76,10 @@ struct BkOverlay {
     guint watch_src;
     int rt_edit;               /* dispositivo*BKRT_SLOTS + slot que edita; -1 */
     char rt_state[16];
+    /* botão do teclado: o toque que o apertou, e a troca já pedida */
+    gboolean sw_armed;
+    const void *sw_seq;
+    guint sw_idle;
 };
 
 static void
@@ -121,6 +129,11 @@ update_input_region(BkOverlay *ov)
             cairo_rectangle_int_t r = { (int)(c->x * ov->w - d / 2), (int)(c->y * ov->h - d / 2), (int)d, (int)d };
             cairo_region_union_rectangle(reg, &r);
         }
+        double cx, cy, rr;
+        bk_ctl_switch_button(ov->w, ov->h, &cx, &cy, &rr);
+        rr *= 1.15;
+        cairo_rectangle_int_t sw = { (int)(cx - rr), (int)(cy - rr), (int)(2 * rr) + 1, (int)(2 * rr) + 1 };
+        cairo_region_union_rectangle(reg, &sw);
     }
     gdk_window_input_shape_combine_region(gw, reg, 0, 0);
     cairo_region_destroy(reg);
@@ -204,6 +217,29 @@ draw_control(BkOverlay *ov, cairo_t *cr, int i)
     }
 }
 
+/* O botão do teclado, no mesmo relevo dos controles. */
+static void
+draw_switch(BkOverlay *ov, cairo_t *cr)
+{
+    double cx, cy, r;
+    bk_ctl_switch_button(ov->w, ov->h, &cx, &cy, &r);
+    gboolean down = ov->sw_armed;
+    double a = MAX(0.35, ov->lay.opacity);
+    cairo_new_path(cr);
+    cairo_pattern_t *g = cairo_pattern_create_linear(cx - r, cy - r, cx + r, cy + r);
+    double top = down ? 0.45 : 0.86, bot = down ? 0.70 : 0.42;
+    cairo_pattern_add_color_stop_rgba(g, 0, top, top, top, a);
+    cairo_pattern_add_color_stop_rgba(g, 1, bot, bot, bot, a);
+    cairo_arc(cr, cx, cy, r, 0, 2 * M_PI);
+    cairo_set_source(cr, g);
+    cairo_fill_preserve(cr);
+    cairo_pattern_destroy(g);
+    cairo_set_line_width(cr, MAX(1.5, r * 0.06));
+    cairo_set_source_rgba(cr, 0, 0, 0, MIN(1, a + 0.2));
+    cairo_stroke(cr);
+    bk_draw_icon_keyboard(cr, cx, cy + (down ? 1 : 0), r * 1.15, 0.05, 0.05, 0.05, MIN(1, a + 0.3));
+}
+
 static gboolean
 on_draw(GtkWidget *w, cairo_t *cr, gpointer data)
 {
@@ -232,6 +268,8 @@ on_draw(GtkWidget *w, cairo_t *cr, gpointer data)
     }
     for (int i = 0; i < ov->lay.n; i++)
         draw_control(ov, cr, i);
+    if (!ov->edit)
+        draw_switch(ov, cr);
     if (ov->edit) {
         double x, y, bw, bh;
         tb_rect(ov, 0, &x, &y, &bw, &bh);
@@ -435,6 +473,46 @@ edit_release(BkOverlay *ov)
     gtk_widget_queue_draw(ov->area);
 }
 
+/* ---- botão do teclado ------------------------------------------------------ */
+
+static gboolean
+on_switch_idle(gpointer data)
+{
+    BkOverlay *ov = data;
+    ov->sw_idle = 0;
+    if (gtk_widget_get_visible(ov->win) && !ov->edit)
+        bk_app_switch(ov->app, FALSE);
+    return G_SOURCE_REMOVE;
+}
+
+/* Um toque (local, mouse ou do celular) no botão do teclado: TRUE se é dele.
+ * A troca fica para o laço principal: o toque do celular chega de dentro da
+ * leitura do touchscreen, que a troca fecha. */
+static gboolean
+switch_touch(BkOverlay *ov, const void *seq, BkCtlPhase ph, double x, double y)
+{
+    if (ov->edit)
+        return FALSE;
+    if (ph == BKC_BEGIN) {
+        if (ov->sw_armed || !bk_ctl_switch_hit(ov->w, ov->h, x, y))
+            return FALSE;
+        ov->sw_armed = TRUE;
+        ov->sw_seq = seq;
+        gtk_widget_queue_draw(ov->area);
+        return TRUE;
+    }
+    if (!ov->sw_armed || seq != ov->sw_seq)
+        return FALSE;
+    if (ph == BKC_MOVE)
+        return TRUE;
+    ov->sw_armed = FALSE;
+    ov->sw_seq = NULL;
+    gtk_widget_queue_draw(ov->area);
+    if (ph == BKC_END && bk_ctl_switch_hit(ov->w, ov->h, x, y) && !ov->sw_idle)
+        ov->sw_idle = g_idle_add(on_switch_idle, ov);
+    return TRUE;
+}
+
 /* ---- entrada -------------------------------------------------------------- */
 
 static gboolean
@@ -460,6 +538,8 @@ on_touch(GtkWidget *w, GdkEventTouch *ev, gpointer data)
                     : ev->type == GDK_TOUCH_UPDATE ? BKC_MOVE
                     : ev->type == GDK_TOUCH_END    ? BKC_END
                                                    : BKC_CANCEL;
+    if (switch_touch(ov, ev->sequence, ph, ev->x, ev->y))
+        return TRUE;
     bk_ctl_touch(&ov->st, &ov->lay, ov->w, ov->h, ev->sequence, ph, ev->x, ev->y, &ov->sink);
     gtk_widget_queue_draw(ov->area);
     return TRUE;
@@ -485,8 +565,10 @@ on_button(GtkWidget *w, GdkEventButton *ev, gpointer data)
             edit_release(ov);
         return TRUE;
     }
-    bk_ctl_touch(&ov->st, &ov->lay, ov->w, ov->h, &mouse_seq, ev->type == GDK_BUTTON_PRESS ? BKC_BEGIN : BKC_END,
-                 ev->x, ev->y, &ov->sink);
+    BkCtlPhase ph = ev->type == GDK_BUTTON_PRESS ? BKC_BEGIN : BKC_END;
+    if (switch_touch(ov, &mouse_seq, ph, ev->x, ev->y))
+        return TRUE;
+    bk_ctl_touch(&ov->st, &ov->lay, ov->w, ov->h, &mouse_seq, ph, ev->x, ev->y, &ov->sink);
     gtk_widget_queue_draw(ov->area);
     return TRUE;
 }
@@ -502,7 +584,7 @@ on_motion(GtkWidget *w, GdkEventMotion *ev, gpointer data)
         return FALSE;
     if (ov->edit)
         edit_move(ov, ev->x, ev->y);
-    else
+    else if (!switch_touch(ov, &mouse_seq, BKC_MOVE, ev->x, ev->y))
         bk_ctl_touch(&ov->st, &ov->lay, ov->w, ov->h, &mouse_seq, BKC_MOVE, ev->x, ev->y, &ov->sink);
     gtk_widget_queue_draw(ov->area);
     return TRUE;
@@ -576,6 +658,8 @@ rt_contact(void *data, int slot, BkCtlPhase ph, double nx, double ny)
             return;
         ph = BKC_BEGIN;
     }
+    if (switch_touch(ov, &rd->token[slot], ph, x, y))
+        return;
     bk_ctl_touch(&ov->st, &ov->lay, ov->w, ov->h, &rd->token[slot], ph, x, y, &ov->sink);
     gtk_widget_queue_draw(ov->area);
 }
@@ -787,6 +871,22 @@ bk_overlay_new(BkApp *app)
     return ov;
 }
 
+static void
+overlay_hide(BkOverlay *ov, gboolean keep_pad)
+{
+    if (ov->sw_idle) {
+        g_source_remove(ov->sw_idle);
+        ov->sw_idle = 0;
+    }
+    rt_stop(ov, strcmp(ov->app->cfg.remote_touch, "off") ? "idle" : "off");
+    bk_overlay_release(ov); /* botões soltos e analógicos no centro */
+    gtk_widget_hide(ov->win);
+    if (ov->app->vpad && !keep_pad) { /* o jogo vê o controle sair: nada fica preso nem órfão */
+        bk_vpad_free(ov->app->vpad);
+        ov->app->vpad = NULL;
+    }
+}
+
 void
 bk_overlay_set_visible(BkOverlay *ov, gboolean visible, gboolean edit)
 {
@@ -831,15 +931,22 @@ bk_overlay_set_visible(BkOverlay *ov, gboolean visible, gboolean edit)
         gtk_widget_queue_draw(ov->area);
         rt_start(ov);
     } else {
-        rt_stop(ov, strcmp(ov->app->cfg.remote_touch, "off") ? "idle" : "off");
-        bk_overlay_release(ov);
-        gtk_widget_hide(ov->win);
-        if (ov->app->vpad) { /* o jogo vê o controle sair: nada fica preso nem órfão */
-            bk_vpad_free(ov->app->vpad);
-            ov->app->vpad = NULL;
-        }
+        overlay_hide(ov, FALSE);
     }
     bk_app_update_state(ov->app);
+}
+
+void
+bk_overlay_hide_keep_pad(BkOverlay *ov)
+{
+    overlay_hide(ov, TRUE);
+    bk_app_update_state(ov->app);
+}
+
+GdkMonitor *
+bk_overlay_monitor(BkOverlay *ov)
+{
+    return ov ? ov->monitor : NULL;
 }
 
 gboolean
@@ -858,6 +965,8 @@ bk_overlay_release(BkOverlay *ov)
             if (ov->rt[i].dev.fd >= 0 && ov->rt[i].dev.dec.id[s] >= 0)
                 ov->rt[i].stale[s] = true;
     bk_ctl_release(&ov->st, &ov->lay, &ov->sink);
+    ov->sw_armed = FALSE;
+    ov->sw_seq = NULL;
     if (ov->area)
         gtk_widget_queue_draw(ov->area);
 }

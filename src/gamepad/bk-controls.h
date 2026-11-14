@@ -69,6 +69,12 @@ void bk_ctl_release(BkCtlState *s, const BkCtlLayout *l, const BkCtlSink *sink);
 bool bk_ctl_clamp(BkCtl *c, double w, double h, double scale);
 const char *bk_ctl_label(const BkCtl *c);
 
+/* O botão que troca o controle pelo teclado: fixo no alto, ao centro (entre
+ * os ombros e acima de Select/Start no layout padrão), fora do layout para
+ * nenhum layout salvo o perder. Centro e raio em pixels numa tela w×h. */
+void bk_ctl_switch_button(double w, double h, double *cx, double *cy, double *r);
+bool bk_ctl_switch_hit(double w, double h, double px, double py);
+
 gboolean bk_ctl_save(const BkCtlLayout *l, const char *path, GError **err);
 gboolean bk_ctl_load(BkCtlLayout *l, const char *path, GError **err);
 /* ~/.local/share/big-keyboard/gamepad-layouts/<nome>.ini */

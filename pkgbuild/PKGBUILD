@@ -10,7 +10,7 @@
 #   BIG_KEYBOARD_SOURCE="git+file://$PWD/.." makepkg
 pkgname=big-keyboard
 pkgver=0.1.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Big WindowMaker: teclado na tela, digitação pelo controle e controle na tela de toque (X11 e Wayland)"
 arch=('x86_64')
 url="https://github.com/big-windowmaker/big-keyboard"

@@ -42,6 +42,8 @@ no visual NeXTSTEP/OPENSTEP do Window Maker. X11 (Window Maker) e Wayland
 | Abrir/fechar o teclado | clique no dockapp, `big-keyboard`, ou **Select + Start** no controle |
 | Configurações | duplo clique no dockapp, ou `big-keyboard --settings [--page=gamepad]` |
 | Controle na tela | menu do dockapp, ou `big-keyboard --gamepad` (`--edit-gamepad` para editar) |
+| Trocar o teclado pelo controle na tela | botão com o controle na barra de título do teclado |
+| Trocar o controle na tela pelo teclado | botão redondo com o teclado, no alto ao centro do controle |
 | Soltar tudo (emergência) | menu do dockapp, ou `big-keyboard --release` |
 | Controle no monitor transmitido | `big-keyboard --output=DP-1` (vazio = principal) |
 | Toque do celular pelo Moonlight | `big-keyboard --remote-touch=exclusive` (padrão), `shared` ou `off` |
@@ -57,6 +59,12 @@ virtual `libvirtualhid Touchscreen`; este programa o lê direto do kernel
 (sem depender do compositor), e no modo `exclusive` o agarra para que nada
 vire clique de mouse. O controle precisa estar no monitor transmitido
 (`--output`), porque o toque chega normalizado à imagem dele.
+
+Para digitar no meio do jogo, toque no botão com o teclado (no alto, ao
+centro): o controle dá lugar ao teclado no mesmo monitor, e o botão com o
+controle, na barra de título do teclado, traz o controle de volta. A troca
+acontece ao tirar o dedo, e o jogo continua vendo o mesmo gamepad: nada
+desconecta no meio da partida.
 
 O dockapp: `big-keyboard-dockapp` (arraste o ícone para o Dock ou o Clip).
 

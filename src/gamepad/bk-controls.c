@@ -34,6 +34,23 @@ bk_ctl_default(BkCtlLayout *l)
     memcpy(l->c, def, sizeof def);
 }
 
+void
+bk_ctl_switch_button(double w, double h, double *cx, double *cy, double *r)
+{
+    double d = MAX(44.0, h * 0.085); /* 44 px: o mínimo confortável para um dedo */
+    *r = d / 2;
+    *cx = w / 2;
+    *cy = MAX(*r + 4, h * 0.06);
+}
+
+bool
+bk_ctl_switch_hit(double w, double h, double px, double py)
+{
+    double cx, cy, r;
+    bk_ctl_switch_button(w, h, &cx, &cy, &r);
+    return hypot(px - cx, py - cy) <= r * 1.15;
+}
+
 double
 bk_ctl_px(const BkCtlLayout *l, const BkCtl *c, double h)
 {

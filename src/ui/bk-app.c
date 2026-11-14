@@ -95,6 +95,21 @@ bk_app_update_state(BkApp *app)
 }
 
 void
+bk_app_switch(BkApp *app, gboolean to_gamepad)
+{
+    if (to_gamepad) {
+        bk_overlay_set_visible(app->overlay, TRUE, FALSE); /* reusa o controle virtual */
+        bk_osk_set_visible(app->osk, FALSE);
+    } else {
+        GdkMonitor *m = bk_overlay_monitor(app->overlay);
+        bk_overlay_hide_keep_pad(app->overlay);
+        if (!bk_osk_visible(app->osk))
+            bk_osk_set_monitor(app->osk, m);
+        bk_osk_set_visible(app->osk, TRUE);
+    }
+}
+
+void
 bk_app_release_all(BkApp *app)
 {
     if (app->osk)

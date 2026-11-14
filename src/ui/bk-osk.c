@@ -56,9 +56,16 @@ struct BkOsk {
     gboolean dragging;
     double drag_x, drag_y;
     int margin_x, margin_y;
+    /* botão do controle: troca ao soltar o dedo, não ao tocar (o controle
+     * pega o touchscreen do celular; um dedo ainda na tela ficaria preso no
+     * compositor) */
+    gboolean switch_armed;
+    GdkEventSequence *switch_seq;
+    GdkMonitor *pinned; /* aberto pela troca: o monitor do controle */
 };
 
 static void osk_layout(BkOsk *osk);
+static void on_monitor_removed(GdkDisplay *d, GdkMonitor *m, gpointer data);
 
 /* ---- desenho ------------------------------------------------------------- */
 
@@ -121,7 +128,70 @@ bk_draw_titlebar(cairo_t *cr, double x, double y, double w, double h, const char
     text(cr, title, x + 10, y + h / 2, fs, TRUE, 1, 1, 1, -1);
 }
 
-/* Botões da barra de título: [⚙] [✕] da direita para a esquerda. */
+/* Ícone de controle: corpo com as duas empunhaduras, direcional à esquerda,
+ * dois botões à direita, no tom oposto ao do corpo. */
+void
+bk_draw_icon_gamepad(cairo_t *cr, double cx, double cy, double s, double r, double g, double b, double a)
+{
+    /* corpo: uma cápsula larga; empunhaduras: dois círculos que descem dos lados */
+    double w = s, h = s * 0.5, x = cx - w / 2, y = cy - s * 0.3, rad = h / 2;
+    cairo_save(cr);
+    cairo_new_path(cr);
+    cairo_set_source_rgba(cr, r, g, b, a);
+    cairo_arc(cr, x + rad, y + rad, rad, M_PI / 2, 1.5 * M_PI);
+    cairo_arc(cr, x + w - rad, y + rad, rad, 1.5 * M_PI, M_PI / 2);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+    double gr = s * 0.2;
+    cairo_arc(cr, x + gr, y + h * 0.75, gr, 0, 2 * M_PI);
+    cairo_fill(cr);
+    cairo_arc(cr, x + w - gr, y + h * 0.75, gr, 0, 2 * M_PI);
+    cairo_fill(cr);
+    /* direcional e botões no tom oposto ao do corpo */
+    double ink = (r + g + b) / 3 > 0.5 ? 0.0 : 1.0;
+    cairo_set_source_rgba(cr, ink, ink, ink, a);
+    double dx = x + w * 0.27, dy = y + h * 0.5, arm = s * 0.13, th = MAX(1.5, s * 0.08);
+    cairo_rectangle(cr, dx - arm, dy - th / 2, 2 * arm, th);
+    cairo_rectangle(cr, dx - th / 2, dy - arm, th, 2 * arm);
+    cairo_fill(cr);
+    double br = MAX(1.0, s * 0.065);
+    cairo_arc(cr, x + w * 0.80, dy - s * 0.05, br, 0, 2 * M_PI);
+    cairo_fill(cr);
+    cairo_arc(cr, x + w * 0.67, dy + s * 0.06, br, 0, 2 * M_PI);
+    cairo_fill(cr);
+    cairo_restore(cr);
+}
+
+/* Ícone de teclado: moldura arredondada, três fileiras de teclas e o espaço. */
+void
+bk_draw_icon_keyboard(cairo_t *cr, double cx, double cy, double s, double r, double g, double b, double a)
+{
+    double w = s * 0.94, h = s * 0.62, x = cx - w / 2, y = cy - h / 2, rad = s * 0.08;
+    double lw = MAX(1.5, s * 0.07);
+    cairo_save(cr);
+    cairo_new_path(cr);
+    cairo_set_source_rgba(cr, r, g, b, a);
+    cairo_set_line_width(cr, lw);
+    double ix = x + lw / 2, iy = y + lw / 2, iw = w - lw, ih = h - lw;
+    cairo_arc(cr, ix + iw - rad, iy + rad, rad, -M_PI / 2, 0);
+    cairo_arc(cr, ix + iw - rad, iy + ih - rad, rad, 0, M_PI / 2);
+    cairo_arc(cr, ix + rad, iy + ih - rad, rad, M_PI / 2, M_PI);
+    cairo_arc(cr, ix + rad, iy + rad, rad, M_PI, 1.5 * M_PI);
+    cairo_close_path(cr);
+    cairo_stroke(cr);
+    /* teclas: uma grade 3×5 dentro da moldura, a última fileira é o espaço */
+    double px = x + lw * 1.8, py = y + lw * 1.8, pw = w - lw * 3.6, ph = h - lw * 3.6;
+    double kw = pw / 5, kh = ph / 3, k = MIN(kw, kh) * 0.62;
+    for (int row = 0; row < 2; row++)
+        for (int col = 0; col < 5; col++)
+            cairo_rectangle(cr, px + col * kw + (kw - k) / 2, py + row * kh + (kh - k) / 2, k, k);
+    cairo_rectangle(cr, px + kw + (kw - k) / 2, py + 2 * kh + (kh - k) / 2, 3 * kw - (kw - k), k);
+    cairo_fill(cr);
+    cairo_restore(cr);
+}
+
+/* Botões da barra de título: [✕] [⚙] [controle] da direita para a esquerda. */
+#define TITLE_BUTTONS 3
 static void
 title_button_rect(BkOsk *osk, int i, double *x, double *y, double *w, double *h)
 {
@@ -213,14 +283,18 @@ on_draw(GtkWidget *w, cairo_t *cr, gpointer data)
     g_snprintf(title, sizeof title, "Big WM Virtual Keyboard%s%s", *panel ? " · " : "", panel);
     bk_draw_titlebar(cr, 0, 0, osk->width, osk->title_h, title, osk->title_h * 0.5);
     static const char *glyphs[] = { "✕", "⚙" };
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < TITLE_BUTTONS; i++) {
         double x, y, bw, bh;
         title_button_rect(osk, i, &x, &y, &bw, &bh);
-        cairo_set_source_rgb(cr, 0.75, 0.75, 0.75);
+        gboolean down = i == 2 && osk->switch_armed;
+        cairo_set_source_rgb(cr, down ? 0.56 : 0.75, down ? 0.56 : 0.75, down ? 0.56 : 0.75);
         cairo_rectangle(cr, x, y, bw, bh);
         cairo_fill(cr);
-        bk_draw_bevel(cr, x, y, bw, bh, TRUE, FALSE);
-        text(cr, glyphs[i], x + bw / 2, y + bh / 2, bh * 0.7, TRUE, 0, 0, 0, 0);
+        bk_draw_bevel(cr, x, y, bw, bh, !down, FALSE);
+        if (i < 2)
+            text(cr, glyphs[i], x + bw / 2, y + bh / 2, bh * 0.7, TRUE, 0, 0, 0, 0);
+        else /* controle na tela */
+            bk_draw_icon_gamepad(cr, x + bw / 2, y + bh / 2 + (down ? 1 : 0), bh * 0.78, 0, 0, 0, 1);
     }
     for (int i = 0; i < osk->geom.n; i++) {
         gboolean down = i == osk->flash;
@@ -325,14 +399,19 @@ static void
 pointer_down(BkOsk *osk, GdkEventSequence *seq, double x, double y, GdkEvent *ev)
 {
     if (y < osk->title_h) {
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < TITLE_BUTTONS; i++) {
             double bx, by, bw, bh;
             title_button_rect(osk, i, &bx, &by, &bw, &bh);
             if (x >= bx && x < bx + bw && y >= by && y < by + bh) {
-                if (i == 0)
+                if (i == 0) {
                     bk_osk_set_visible(osk, FALSE);
-                else
+                } else if (i == 1) {
                     bk_settings_show(osk->app, "keyboard");
+                } else if (!osk->switch_armed) {
+                    osk->switch_armed = TRUE;
+                    osk->switch_seq = seq;
+                    gtk_widget_queue_draw(osk->area);
+                }
                 return;
             }
         }
@@ -395,6 +474,15 @@ static void
 pointer_up(BkOsk *osk, GdkEventSequence *seq, double x, double y, gboolean cancel)
 {
     osk->dragging = FALSE;
+    if (osk->switch_armed && seq == osk->switch_seq) {
+        osk->switch_armed = FALSE;
+        double bx, by, bw, bh;
+        title_button_rect(osk, 2, &bx, &by, &bw, &bh);
+        gtk_widget_queue_draw(osk->area);
+        if (!cancel && x >= bx && x < bx + bw && y >= by && y < by + bh)
+            bk_app_switch(osk->app, TRUE);
+        return;
+    }
     Slot *s = slot_for(osk, seq, FALSE);
     if (!s)
         return;
@@ -634,6 +722,8 @@ static GdkMonitor *
 target_monitor(BkOsk *osk)
 {
     GdkDisplay *d = gtk_widget_get_display(osk->win);
+    if (osk->pinned)
+        return osk->pinned;
     GdkSeat *seat = gdk_display_get_default_seat(d);
     GdkDevice *ptr = seat ? gdk_seat_get_pointer(seat) : NULL;
     int px = 0, py = 0;
@@ -718,6 +808,7 @@ bk_osk_new(BkApp *app)
 {
     BkOsk *osk = g_new0(BkOsk, 1);
     osk->app = app;
+    g_signal_connect(gdk_display_get_default(), "monitor-removed", G_CALLBACK(on_monitor_removed), osk);
     osk->cursor = -1;
     osk->point[0] = osk->point[1] = -1;
     osk->flash = -1;
@@ -791,6 +882,13 @@ bk_osk_set_visible(BkOsk *osk, gboolean visible)
     } else {
         bk_osk_release(osk);
         gtk_widget_hide(osk->win);
+        g_clear_object(&osk->pinned);
+        /* o controle virtual que a troca manteve ligado sai junto, se o
+         * controle na tela não voltou */
+        if (osk->app->vpad && !bk_overlay_visible(osk->app->overlay)) {
+            bk_vpad_free(osk->app->vpad);
+            osk->app->vpad = NULL;
+        }
     }
     bk_app_update_state(osk->app);
 }
@@ -805,6 +903,7 @@ void
 bk_osk_release(BkOsk *osk)
 {
     stop_repeat(osk);
+    osk->switch_armed = FALSE;
     for (int i = 0; i < MAX_SLOTS; i++)
         osk->slot[i].used = FALSE;
     bk_state_release_all(&osk->st);
@@ -812,6 +911,23 @@ bk_osk_release(BkOsk *osk)
     osk->point[0] = osk->point[1] = -1;
     if (osk->area)
         gtk_widget_queue_draw(osk->area);
+}
+
+static void
+on_monitor_removed(GdkDisplay *d, GdkMonitor *m, gpointer data)
+{
+    (void)d;
+    BkOsk *osk = data;
+    if (osk->pinned == m)
+        g_clear_object(&osk->pinned);
+}
+
+void
+bk_osk_set_monitor(BkOsk *osk, GdkMonitor *monitor)
+{
+    g_clear_object(&osk->pinned);
+    if (monitor)
+        osk->pinned = g_object_ref(monitor);
 }
 
 void

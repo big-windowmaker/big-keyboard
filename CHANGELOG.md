@@ -2,6 +2,13 @@
 
 ## Não lançado
 
+- **Trocar entre teclado e controle na tela**: a barra de título do teclado
+  ganhou um botão com um controle, e o controle na tela, um botão redondo
+  com um teclado (no alto, ao centro, fora do layout e sem cobrir nenhum
+  controle do layout padrão). A troca acontece ao tirar o dedo, também
+  pelo celular; o gamepad virtual continua ligado (o jogo não o vê sair) e
+  o teclado abre no monitor do controle. Fechar o teclado depois da troca
+  desliga o gamepad.
 - **Toque remoto (celular pelo Moonlight)**: com o controle na tela aberto,
   os dedos que chegam pelo touchscreen virtual do Sunshine
   (`libvirtualhid Touchscreen`) são lidos direto do kernel, cada um como um
