@@ -30,9 +30,23 @@ typedef struct {
 #define BKC_MAX 32
 #define BKC_TOUCHES 16
 
+/* Aparência, gravada com o layout (um layout "PlayStation" já vem com
+ * ✕ ○ □ △). Os valores são palavras fixas; um valor desconhecido no arquivo
+ * vira o padrão, que é o visual de sempre (classic, xbox, sink). */
+typedef struct {
+    char style[12];   /* classic (OPENSTEP, relevo cinza), modern (vidro escuro), retro (16 bits, cores
+                         fortes e contorno grosso), neon (contorno luminoso), minimal (só contorno) */
+    char buttons[12]; /* xbox (A B X Y), playstation (✕ ○ □ △), nintendo (B A Y X, nas mesmas posições) */
+    char accent[10];  /* blue, red, green, purple, orange, gray: destaque de toques e contornos */
+    char stick[10];   /* fixed; floating: o centro do analógico vai aonde o dedo encosta */
+    char dpad[10];    /* cross (cruz), buttons (quatro setas), disc (disco) */
+    char anim[10];    /* none, sink (afunda), glow (brilho), ripple (onda), bounce (encolhe) */
+} BkCtlLook;
+
 typedef struct {
     char name[64];
     double opacity, scale;
+    BkCtlLook look;
     BkCtl c[BKC_MAX];
     int n;
 } BkCtlLayout;
@@ -50,6 +64,8 @@ typedef struct {
     const void *seq[BKC_TOUCHES]; /* identidade do toque (GdkEventSequence) */
     int ctl[BKC_TOUCHES];         /* controle preso a cada toque; -1 livre */
     bool used[BKC_TOUCHES];
+    double px[BKC_TOUCHES], py[BKC_TOUCHES]; /* onde o dedo está (pixels) */
+    double ox[BKC_TOUCHES], oy[BKC_TOUCHES]; /* centro do analógico deste toque (flutuante: onde encostou) */
 } BkCtlState;
 
 typedef enum { BKC_BEGIN, BKC_MOVE, BKC_END, BKC_CANCEL } BkCtlPhase;
@@ -68,6 +84,32 @@ void bk_ctl_release(BkCtlState *s, const BkCtlLayout *l, const BkCtlSink *sink);
 /* Mantém o controle inteiro dentro da tela; TRUE se precisou mexer. */
 bool bk_ctl_clamp(BkCtl *c, double w, double h, double scale);
 const char *bk_ctl_label(const BkCtl *c);
+
+/* ---- aparência ---- */
+void bk_ctl_look_default(BkCtlLook *k);
+/* O rótulo na família de botões do layout (A/✕/B, LB/L1/L, LT/L2/ZL...). */
+const char *bk_ctl_label_for(const BkCtlLayout *l, const BkCtl *c);
+/* Cor de marca de um botão de ação (verde do A, azul do ✕...); FALSE: sem cor. */
+bool bk_ctl_color(const BkCtlLayout *l, const BkCtl *c, double rgb[3]);
+void bk_ctl_accent(const BkCtlLayout *l, double rgb[3]);
+/* O toque que segura o controle ci, ou -1. */
+int bk_ctl_touch_of(const BkCtlState *s, int ci);
+/* Para desenhar: centro da base do analógico (pixels; o flutuante segue o
+ * dedo que encostou) e o pino, de -1 a 1 em cada eixo (dentro do círculo). */
+void bk_ctl_stick_visual(const BkCtlLayout *l, const BkCtlState *s, double w, double h, int ci, double *cx,
+                         double *cy, double *kx, double *ky);
+/* A direção apertada do direcional (cada eixo -1, 0 ou 1). */
+void bk_ctl_dpad_visual(const BkCtlLayout *l, const BkCtlState *s, double w, double h, int ci, int *hx, int *hy);
+
+/* ---- modelos ---- */
+typedef struct {
+    const char *id, *name, *description;
+} BkCtlTemplate;
+/* Modelos prontos (Xbox, PlayStation, Nintendo Switch, retrô, arcade,
+ * corrida, mínimo); a lista termina com id NULL. */
+const BkCtlTemplate *bk_ctl_templates(void);
+/* Preenche o layout com o modelo (controles e aparência); FALSE: id desconhecido. */
+bool bk_ctl_template(BkCtlLayout *l, const char *id);
 
 /* O botão que troca o controle pelo teclado: fixo no alto, ao centro (entre
  * os ombros e acima de Select/Start no layout padrão), fora do layout para

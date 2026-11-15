@@ -13,9 +13,10 @@
  * gerenciador, ela volta ao topo quando ele reempilha as janelas
  * (_NET_CLIENT_LIST_STACKING ou _NET_ACTIVE_WINDOW na raiz mudam).
  *
- * Toque remoto (bk-rtouch.c): com o controle visível, os dedos de um
- * celular no Moonlight chegam pelo touchscreen virtual do Sunshine, lido
- * direto do kernel; cada dedo é um toque independente, como na tela local.
+ * Toque remoto: os dedos de um celular no Moonlight chegam pelo
+ * touchscreen virtual do Sunshine, lido em bk-remote.c, que entrega aqui os
+ * que caem num controle (bk_overlay_remote_claim); cada dedo é um toque
+ * independente, como na tela local.
  * O controle fica no monitor transmitido (--output), porque o toque chega
  * normalizado à imagem desse monitor. O dispositivo sumir (fim da sessão,
  * queda da rede detectada pelo Sunshine) solta tudo o que os dedos seguravam.
@@ -31,7 +32,6 @@
  */
 #include "bk-app.h"
 #include "bk-controls.h"
-#include "bk-rtouch.h"
 
 #include <errno.h>
 #include <glib-unix.h>
@@ -53,15 +53,6 @@ typedef enum { TB_ADD_BTN, TB_ADD_STICK, TB_ADD_DPAD, TB_DEL, TB_FUNC, TB_DZ, TB
 static const char *tb_label[TB_N] = { "+ Botão", "+ Analógico", "+ Direcional", "Remover", "Função", "Zona morta",
                                       "Sensibilidade", "Opacidade", "Salvar", "Padrão", "Concluir" };
 
-#define RT_DEVS 4
-typedef struct {
-    BkOverlay *ov;
-    BkRtDevice dev;
-    guint src;
-    char token[BKRT_SLOTS]; /* identidade de cada dedo (endereços únicos) */
-    bool stale[BKRT_SLOTS]; /* soltos à força (--release) com o dedo ainda na tela */
-} RtDev;
-
 struct BkOverlay {
     BkApp *app;
     GtkWidget *win, *area;
@@ -80,17 +71,16 @@ struct BkOverlay {
     int guide_x, guide_y;    /* controle com quem alinha (-1 nenhum) */
     char status[160];
     GdkMonitor *monitor;     /* onde está (NULL: o compositor escolhe) */
-    /* toque remoto: um por touchscreen do Sunshine (pode haver dois: o
-     * compartilhamento normal e a tela privada do Game Window) */
-    RtDev rt[RT_DEVS];
-    BkRtWatch *watch;
-    guint watch_src;
-    int rt_edit;               /* dispositivo*BKRT_SLOTS + slot que edita; -1 */
-    char rt_state[16];
+    /* toque remoto (bk-remote.c): o dedo que usa o editor */
+    const void *rt_edit;
     /* botão do teclado: o toque que o apertou, e a troca já pedida */
     gboolean sw_armed;
     const void *sw_seq;
     guint sw_idle;
+    /* animação de toque */
+    gint64 pressed_at[BKC_MAX];
+    gboolean was_held[BKC_MAX];
+    guint anim_tick;
 };
 
 static void
@@ -180,75 +170,51 @@ label(cairo_t *cr, const char *t, double cx, double cy, double fs, double r, dou
     g_object_unref(l);
 }
 
+/* Animação de toque: quando cada controle foi apertado (µs). */
 static gboolean
-held(BkOverlay *ov, int ci)
+on_anim_tick(GtkWidget *w, GdkFrameClock *fc, gpointer data)
 {
-    for (int i = 0; i < BKC_TOUCHES; i++)
-        if (ov->st.used[i] && ov->st.ctl[i] == ci)
-            return TRUE;
-    return FALSE;
+    (void)fc;
+    BkOverlay *ov = data;
+    gint64 now = g_get_monotonic_time();
+    gboolean more = FALSE;
+    for (int i = 0; i < ov->lay.n; i++)
+        more |= bk_ctl_paint_animating(&ov->lay, now, ov->pressed_at[i]);
+    gtk_widget_queue_draw(w);
+    if (!more)
+        ov->anim_tick = 0;
+    return more ? G_SOURCE_CONTINUE : G_SOURCE_REMOVE;
+}
+
+/* Marca os controles que acabaram de ser apertados e anima, se preciso. */
+static void
+note_presses(BkOverlay *ov)
+{
+    gint64 now = g_get_monotonic_time();
+    gboolean anim = FALSE;
+    for (int i = 0; i < ov->lay.n && i < BKC_MAX; i++) {
+        gboolean h = bk_ctl_touch_of(&ov->st, i) >= 0;
+        if (h && !ov->was_held[i])
+            ov->pressed_at[i] = now;
+        ov->was_held[i] = h;
+        anim |= bk_ctl_paint_animating(&ov->lay, now, ov->pressed_at[i]);
+    }
+    if (anim && !ov->anim_tick)
+        ov->anim_tick = gtk_widget_add_tick_callback(ov->area, on_anim_tick, ov, NULL);
 }
 
 static void
-draw_control(BkOverlay *ov, cairo_t *cr, int i)
+draw_selection(BkOverlay *ov, cairo_t *cr, int i)
 {
     const BkCtl *c = &ov->lay.c[i];
     double d = bk_ctl_px(&ov->lay, c, ov->h), r = d / 2, cx = c->x * ov->w, cy = c->y * ov->h;
-    gboolean down = held(ov, i);
-    double a = ov->lay.opacity * (c->enabled ? 1 : 0.35);
-    /* relevo OPENSTEP num disco: luz em cima à esquerda, sombra embaixo
-     * (caminho novo: senão o arco puxa uma linha do texto anterior) */
     cairo_new_path(cr);
-    cairo_pattern_t *g = cairo_pattern_create_linear(cx - r, cy - r, cx + r, cy + r);
-    double top = down ? 0.45 : 0.86, bot = down ? 0.70 : 0.42;
-    cairo_pattern_add_color_stop_rgba(g, 0, top, top, top, a);
-    cairo_pattern_add_color_stop_rgba(g, 1, bot, bot, bot, a);
-    cairo_arc(cr, cx, cy, r, 0, 2 * M_PI);
-    cairo_set_source(cr, g);
-    cairo_fill_preserve(cr);
-    cairo_pattern_destroy(g);
-    cairo_set_line_width(cr, MAX(1.5, d * 0.03));
-    cairo_set_source_rgba(cr, 0, 0, 0, MIN(1, a + 0.2));
+    cairo_set_source_rgb(cr, 0.1, 0.45, 0.95);
+    cairo_set_line_width(cr, 3);
+    cairo_rectangle(cr, cx - r - 4, cy - r - 4, d + 8, d + 8);
     cairo_stroke(cr);
-    if (c->kind == BKC_STICK || c->kind == BKC_DPAD) {
-        /* área de movimento e o pino (centro, ou onde o dedo está) */
-        cairo_set_source_rgba(cr, 0, 0, 0, a * 0.5);
-        cairo_new_path(cr);
-        cairo_arc(cr, cx, cy, r * c->deadzone, 0, 2 * M_PI);
-        cairo_stroke(cr);
-    }
-    label(cr, bk_ctl_label(c), cx, cy, MAX(12, d * (c->kind == BKC_BUTTON ? 0.38 : 0.3)), 0.05, 0.05, 0.05);
-    if (ov->edit && i == ov->sel) {
-        cairo_set_source_rgb(cr, 0.1, 0.45, 0.95);
-        cairo_set_line_width(cr, 3);
-        cairo_rectangle(cr, cx - r - 4, cy - r - 4, d + 8, d + 8);
-        cairo_stroke(cr);
-        cairo_rectangle(cr, cx + r - 6, cy + r - 6, 14, 14); /* alça de tamanho */
-        cairo_fill(cr);
-    }
-}
-
-/* O botão do teclado, no mesmo relevo dos controles. */
-static void
-draw_switch(BkOverlay *ov, cairo_t *cr)
-{
-    double cx, cy, r;
-    bk_ctl_switch_button(ov->w, ov->h, &cx, &cy, &r);
-    gboolean down = ov->sw_armed;
-    double a = MAX(0.35, ov->lay.opacity);
-    cairo_new_path(cr);
-    cairo_pattern_t *g = cairo_pattern_create_linear(cx - r, cy - r, cx + r, cy + r);
-    double top = down ? 0.45 : 0.86, bot = down ? 0.70 : 0.42;
-    cairo_pattern_add_color_stop_rgba(g, 0, top, top, top, a);
-    cairo_pattern_add_color_stop_rgba(g, 1, bot, bot, bot, a);
-    cairo_arc(cr, cx, cy, r, 0, 2 * M_PI);
-    cairo_set_source(cr, g);
-    cairo_fill_preserve(cr);
-    cairo_pattern_destroy(g);
-    cairo_set_line_width(cr, MAX(1.5, r * 0.06));
-    cairo_set_source_rgba(cr, 0, 0, 0, MIN(1, a + 0.2));
-    cairo_stroke(cr);
-    bk_draw_icon_keyboard(cr, cx, cy + (down ? 1 : 0), r * 1.15, 0.05, 0.05, 0.05, MIN(1, a + 0.3));
+    cairo_rectangle(cr, cx + r - 6, cy + r - 6, 14, 14); /* alça de tamanho */
+    cairo_fill(cr);
 }
 
 static gboolean
@@ -277,10 +243,14 @@ on_draw(GtkWidget *w, cairo_t *cr, gpointer data)
             cairo_stroke(cr);
         }
     }
+    note_presses(ov);
+    gint64 now = g_get_monotonic_time();
     for (int i = 0; i < ov->lay.n; i++)
-        draw_control(ov, cr, i);
+        bk_ctl_paint(cr, &ov->lay, &ov->st, ov->w, ov->h, i, now, ov->pressed_at[i]);
+    if (ov->edit && ov->sel >= 0)
+        draw_selection(ov, cr, ov->sel);
     if (!ov->edit)
-        draw_switch(ov, cr);
+        bk_ctl_paint_switch(cr, &ov->lay, ov->w, ov->h, ov->sw_armed);
     if (ov->edit) {
         double x, y, bw, bh;
         tb_rect(ov, 0, &x, &y, &bw, &bh);
@@ -533,9 +503,8 @@ on_touch(GtkWidget *w, GdkEventTouch *ev, gpointer data)
     BkOverlay *ov = data;
     /* Lendo o touchscreen remoto sem exclusividade, o compositor também o
      * entrega aqui: o mesmo dedo não pode valer duas vezes. */
-    for (int i = 0; i < RT_DEVS; i++)
-        if (ov->rt[i].dev.fd >= 0 && ov->rt[i].dev.grab != BKRT_GRAB_OK)
-            return TRUE;
+    if (bk_remote_shadows_local(ov->app->remote))
+        return TRUE;
     if (ov->edit) {
         if (ev->type == GDK_TOUCH_BEGIN)
             edit_press(ov, ev->x, ev->y);
@@ -611,186 +580,44 @@ on_size(GtkWidget *w, GdkRectangle *a, gpointer data)
     update_input_region(ov);
 }
 
-/* ---- toque remoto ---------------------------------------------------------- */
+/* ---- toque remoto (os dedos chegam por bk-remote.c) ------------------------- */
 
-static void
-rt_set_state(BkOverlay *ov, const char *state)
+gboolean
+bk_overlay_remote_claim(BkOverlay *ov, double nx, double ny, gboolean under_keyboard)
 {
-    if (!strcmp(ov->rt_state, state))
-        return;
-    g_strlcpy(ov->rt_state, state, sizeof ov->rt_state);
-    g_message("toque remoto: %s", state);
-    bk_app_update_state(ov->app);
-}
-
-/* O estado de todos os dispositivos juntos. */
-static void
-rt_update_state(BkOverlay *ov)
-{
-    int open = 0, grabbed = 0, busy = 0;
-    for (int i = 0; i < RT_DEVS; i++)
-        if (ov->rt[i].dev.fd >= 0) {
-            open++;
-            grabbed += ov->rt[i].dev.grab == BKRT_GRAB_OK;
-            busy += ov->rt[i].dev.grab == BKRT_GRAB_BUSY;
-        }
-    if (!open)
-        rt_set_state(ov, "waiting");
-    else
-        rt_set_state(ov, busy ? "busy" : grabbed ? "active" : "shared");
+    if (!bk_overlay_visible(ov))
+        return FALSE;
+    if (ov->edit) /* editar pelo celular: o primeiro dedo */
+        return !ov->rt_edit;
+    double x = nx * ov->w, y = ny * ov->h;
+    if (bk_ctl_switch_hit(ov->w, ov->h, x, y))
+        return TRUE;
+    return !under_keyboard && bk_ctl_hit(&ov->lay, ov->w, ov->h, x, y) >= 0;
 }
 
 /* Um dedo do celular: o mesmo caminho de um toque na tela local. */
-static void
-rt_contact(void *data, int slot, BkCtlPhase ph, double nx, double ny)
+void
+bk_overlay_remote_touch(BkOverlay *ov, const void *id, BkCtlPhase ph, double nx, double ny)
 {
-    RtDev *rd = data;
-    BkOverlay *ov = rd->ov;
-    int key = (int)(rd - ov->rt) * BKRT_SLOTS + slot;
+    if (!bk_overlay_visible(ov))
+        return; /* fechou com o dedo na tela: o que ele segurava já foi solto */
     double x = nx * ov->w, y = ny * ov->h;
-    if (ov->edit) { /* editar pelo celular: o primeiro dedo arrasta */
-        if (ph == BKC_BEGIN && ov->rt_edit < 0) {
-            ov->rt_edit = key;
+    if (ov->edit) { /* o primeiro dedo arrasta */
+        if (ph == BKC_BEGIN && !ov->rt_edit) {
+            ov->rt_edit = id;
             edit_press(ov, x, y);
-        } else if (key == ov->rt_edit && ph == BKC_MOVE) {
+        } else if (id == ov->rt_edit && ph == BKC_MOVE) {
             edit_move(ov, x, y);
-        } else if (key == ov->rt_edit) {
-            ov->rt_edit = -1;
+        } else if (id == ov->rt_edit && ph != BKC_BEGIN) {
+            ov->rt_edit = NULL;
             edit_release(ov);
         }
         return;
     }
-    if (rd->stale[slot]) {
-        /* Soltamos este dedo à força (o Big Remote Play viu a sessão cair, ou
-         * --release), mas o Sunshine ainda o mantém na tela. Se ele voltar a
-         * se mover, é o celular de novo: vale como um toque novo ali. */
-        rd->stale[slot] = false;
-        if (ph != BKC_MOVE)
-            return;
-        ph = BKC_BEGIN;
-    }
-    if (switch_touch(ov, &rd->token[slot], ph, x, y))
+    if (switch_touch(ov, id, ph, x, y))
         return;
-    bk_ctl_touch(&ov->st, &ov->lay, ov->w, ov->h, &rd->token[slot], ph, x, y, &ov->sink);
+    bk_ctl_touch(&ov->st, &ov->lay, ov->w, ov->h, id, ph, x, y, &ov->sink);
     gtk_widget_queue_draw(ov->area);
-}
-
-static void
-rt_detach(RtDev *rd)
-{
-    if (rd->src) {
-        g_source_remove(rd->src);
-        rd->src = 0;
-    }
-    bk_rt_device_close(&rd->dev, rt_contact, rd);
-    memset(rd->stale, 0, sizeof rd->stale);
-}
-
-static gboolean
-on_rt_fd(gint fd, GIOCondition cond, gpointer data)
-{
-    (void)fd;
-    RtDev *rd = data;
-    if (bk_rt_device_read(&rd->dev, rt_contact, rd) && !(cond & (G_IO_HUP | G_IO_ERR | G_IO_NVAL)))
-        return G_SOURCE_CONTINUE;
-    /* o dispositivo sumiu: os dedos dele já foram soltos pelo leitor */
-    rd->src = 0;
-    rt_detach(rd);
-    rt_update_state(rd->ov);
-    return G_SOURCE_REMOVE;
-}
-
-static void
-rt_attach(BkOverlay *ov)
-{
-    if (!gtk_widget_get_visible(ov->win) || !strcmp(ov->app->cfg.remote_touch, "off"))
-        return;
-    gboolean exclusive = !strcmp(ov->app->cfg.remote_touch, "exclusive");
-    char **nodes = bk_rt_find_nodes();
-    const char *problem = NULL;
-    for (int n = 0; nodes && nodes[n]; n++) {
-        RtDev *free_rd = NULL;
-        gboolean known = FALSE;
-        for (int i = 0; i < RT_DEVS; i++) {
-            if (ov->rt[i].dev.fd >= 0 && !strcmp(ov->rt[i].dev.node, nodes[n]))
-                known = TRUE;
-            else if (ov->rt[i].dev.fd < 0 && !free_rd)
-                free_rd = &ov->rt[i];
-        }
-        if (known || !free_rd)
-            continue;
-        GError *err = NULL;
-        if (!bk_rt_device_open(&free_rd->dev, nodes[n], exclusive, &err)) {
-            gboolean denied = g_error_matches(err, G_FILE_ERROR, G_FILE_ERROR_ACCES) ||
-                              g_error_matches(err, G_FILE_ERROR, G_FILE_ERROR_PERM);
-            g_warning("toque remoto: %s", err->message);
-            g_clear_error(&err);
-            free_rd->dev.fd = -1;
-            problem = denied ? "denied" : "error";
-            continue;
-        }
-        free_rd->src = g_unix_fd_add(free_rd->dev.fd, G_IO_IN | G_IO_HUP | G_IO_ERR, on_rt_fd, free_rd);
-        g_message("toque remoto: lendo %s%s", nodes[n],
-                  !exclusive ? "" : free_rd->dev.grab == BKRT_GRAB_OK ? " (exclusivo)" : " (outro leitor o agarrou)");
-    }
-    g_strfreev(nodes);
-    rt_update_state(ov);
-    if (problem && !strcmp(ov->rt_state, "waiting"))
-        rt_set_state(ov, problem);
-}
-
-static gboolean
-on_watch(gint fd, GIOCondition cond, gpointer data)
-{
-    (void)fd;
-    (void)cond;
-    BkOverlay *ov = data;
-    if (bk_rt_watch_drain(ov->watch))
-        rt_attach(ov); /* um dispositivo novo; o que sumiu já avisou pelo HUP */
-    return G_SOURCE_CONTINUE;
-}
-
-static void
-rt_start(BkOverlay *ov)
-{
-    if (!strcmp(ov->app->cfg.remote_touch, "off")) {
-        rt_set_state(ov, "off");
-        return;
-    }
-    if (!ov->watch && (ov->watch = bk_rt_watch_new()))
-        ov->watch_src = g_unix_fd_add(bk_rt_watch_fd(ov->watch), G_IO_IN, on_watch, ov);
-    rt_attach(ov);
-}
-
-static void
-rt_stop(BkOverlay *ov, const char *state)
-{
-    for (int i = 0; i < RT_DEVS; i++)
-        rt_detach(&ov->rt[i]);
-    ov->rt_edit = -1;
-    if (ov->watch_src) {
-        g_source_remove(ov->watch_src);
-        ov->watch_src = 0;
-    }
-    bk_rt_watch_free(ov->watch);
-    ov->watch = NULL;
-    rt_set_state(ov, state);
-}
-
-const char *
-bk_overlay_remote_state(BkOverlay *ov)
-{
-    return ov && ov->rt_state[0] ? ov->rt_state : "idle";
-}
-
-void
-bk_overlay_remote_changed(BkOverlay *ov)
-{
-    rt_stop(ov, "idle");
-    if (gtk_widget_get_visible(ov->win))
-        rt_start(ov);
-    else if (!strcmp(ov->app->cfg.remote_touch, "off"))
-        rt_set_state(ov, "off");
 }
 
 /* O monitor configurado (o transmitido), ou NULL para o compositor escolher. */
@@ -849,11 +676,6 @@ bk_overlay_new(BkApp *app)
     BkOverlay *ov = g_new0(BkOverlay, 1);
     ov->app = app;
     ov->sel = ov->drag = ov->guide_x = ov->guide_y = -1;
-    for (int i = 0; i < RT_DEVS; i++) {
-        ov->rt[i].ov = ov;
-        ov->rt[i].dev.fd = -1;
-    }
-    ov->rt_edit = -1;
     ov->sink = (BkCtlSink){ s_button, s_stick, s_trigger, s_hat, s_sync, ov };
     bk_ctl_state_init(&ov->st);
     gboolean x11 = FALSE;
@@ -922,7 +744,10 @@ overlay_hide(BkOverlay *ov, gboolean keep_pad)
         g_source_remove(ov->sw_idle);
         ov->sw_idle = 0;
     }
-    rt_stop(ov, strcmp(ov->app->cfg.remote_touch, "off") ? "idle" : "off");
+    if (ov->anim_tick) {
+        gtk_widget_remove_tick_callback(ov->area, ov->anim_tick);
+        ov->anim_tick = 0;
+    }
     bk_overlay_release(ov); /* botões soltos e analógicos no centro */
     gtk_widget_hide(ov->win);
     if (ov->app->vpad && !keep_pad) { /* o jogo vê o controle sair: nada fica preso nem órfão */
@@ -949,7 +774,7 @@ bk_overlay_set_visible(BkOverlay *ov, gboolean visible, gboolean edit)
             bk_ctl_release(&ov->st, &ov->lay, &ov->sink); /* jogar ↔ editar: nada fica apertado */
         ov->edit = edit;
         ov->sel = -1;
-        ov->rt_edit = -1;
+        ov->rt_edit = NULL;
         describe(ov);
         GdkMonitor *target = target_monitor(ov);
 #ifdef BK_HAVE_WAYLAND
@@ -973,7 +798,6 @@ bk_overlay_set_visible(BkOverlay *ov, gboolean visible, gboolean edit)
         gtk_widget_show_all(ov->win);
         update_input_region(ov);
         gtk_widget_queue_draw(ov->area);
-        rt_start(ov);
     } else {
         overlay_hide(ov, FALSE);
     }
@@ -1004,13 +828,21 @@ bk_overlay_release(BkOverlay *ov)
 {
     if (!ov)
         return;
-    for (int i = 0; i < RT_DEVS; i++)
-        for (int s = 0; s < BKRT_SLOTS; s++)
-            if (ov->rt[i].dev.fd >= 0 && ov->rt[i].dev.dec.id[s] >= 0)
-                ov->rt[i].stale[s] = true;
     bk_ctl_release(&ov->st, &ov->lay, &ov->sink);
     ov->sw_armed = FALSE;
     ov->sw_seq = NULL;
     if (ov->area)
         gtk_widget_queue_draw(ov->area);
+}
+
+void
+bk_overlay_reload(BkOverlay *ov)
+{
+    if (!bk_overlay_visible(ov) || ov->edit)
+        return; /* fechado, relê ao abrir; no editor, o que está na tela é o que vale */
+    bk_ctl_release(&ov->st, &ov->lay, &ov->sink);
+    load_layout(ov);
+    memset(ov->was_held, 0, sizeof ov->was_held);
+    update_input_region(ov);
+    gtk_widget_queue_draw(ov->area);
 }

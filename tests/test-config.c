@@ -73,6 +73,16 @@ main(void)
     g_file_set_contents(f, "[General]\nVersion=1\n[VirtualGamepad]\nRemoteTouch=root\nOutput=../etc;rm\n", -1, NULL);
     bk_config_load(&d, f);
     CHECK(!strcmp(d.remote_touch, "exclusive") && !d.overlay_output[0], "valores estranhos recusados");
+    /* mouse pelo toque: modo e velocidade validados */
+    g_file_set_contents(f, "[General]\nVersion=1\n[VirtualGamepad]\nRemoteMouse=direct\nRemoteMouseSpeed=2.5\n", -1,
+                        NULL);
+    bk_config_load(&d, f);
+    CHECK(!strcmp(d.remote_mouse, "direct") && d.remote_mouse_speed == 2.5, "mouse pelo toque lido");
+    g_file_set_contents(f, "[General]\nVersion=1\n[VirtualGamepad]\nRemoteMouse=sempre\nRemoteMouseSpeed=99\n", -1,
+                        NULL);
+    bk_config_load(&d, f);
+    CHECK(!strcmp(d.remote_mouse, "auto") && d.remote_mouse_speed == 4.0, "mouse: valor estranho vira o padrão, "
+          "velocidade limitada: %s %.1f", d.remote_mouse, d.remote_mouse_speed);
     CHECK(bk_config_valid_output("HDMI-A-1") && bk_config_valid_output("") && !bk_config_valid_output("a b"),
           "nomes de conector");
     /* arquivo ilegível: guardado como .invalid, padrões */

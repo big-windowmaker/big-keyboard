@@ -34,6 +34,8 @@ bk_config_defaults(BkConfig *c)
     g_strlcpy(c->overlay_layout, "padrão", sizeof c->overlay_layout);
     g_strlcpy(c->remote_touch, "exclusive", sizeof c->remote_touch);
     c->overlay_output[0] = 0;
+    g_strlcpy(c->remote_mouse, "auto", sizeof c->remote_mouse);
+    c->remote_mouse_speed = 1.5;
     c->mouse_sens_x = c->mouse_sens_y = 1.0;
     c->mouse_curve = 1.0;
     g_strlcpy(c->xcloud_backend, "better-xcloud", sizeof c->xcloud_backend);
@@ -158,6 +160,9 @@ bk_config_load(BkConfig *c, const char *path)
     get_s(k, "VirtualGamepad", "Output", c->overlay_output, sizeof c->overlay_output, NULL);
     if (!bk_config_valid_output(c->overlay_output))
         c->overlay_output[0] = 0;
+    static const char *const rmouse[] = { "auto", "touchpad", "direct", "off", NULL };
+    get_s(k, "VirtualGamepad", "RemoteMouse", c->remote_mouse, sizeof c->remote_mouse, rmouse);
+    c->remote_mouse_speed = get_d(k, "VirtualGamepad", "RemoteMouseSpeed", c->remote_mouse_speed, 0.5, 4.0);
     c->mouse_sens_x = get_d(k, "Mouse", "SensitivityX", c->mouse_sens_x, 0.1, 10);
     c->mouse_sens_y = get_d(k, "Mouse", "SensitivityY", c->mouse_sens_y, 0.1, 10);
     c->invert_y = get_b(k, "Mouse", "InvertY", c->invert_y);
@@ -215,6 +220,8 @@ bk_config_save(const BkConfig *c, const char *path, GError **err)
     g_key_file_set_string(k, "VirtualGamepad", "Layout", c->overlay_layout);
     g_key_file_set_string(k, "VirtualGamepad", "RemoteTouch", c->remote_touch);
     g_key_file_set_string(k, "VirtualGamepad", "Output", c->overlay_output);
+    g_key_file_set_string(k, "VirtualGamepad", "RemoteMouse", c->remote_mouse);
+    g_key_file_set_double(k, "VirtualGamepad", "RemoteMouseSpeed", c->remote_mouse_speed);
     g_key_file_set_double(k, "Mouse", "SensitivityX", c->mouse_sens_x);
     g_key_file_set_double(k, "Mouse", "SensitivityY", c->mouse_sens_y);
     g_key_file_set_boolean(k, "Mouse", "InvertY", c->invert_y);

@@ -66,6 +66,7 @@ struct BkOsk {
     gboolean override; /* X11: override-redirect (acima até da tela cheia) */
     int level;         /* 0 normal, 1 acima das janelas, 2 acima da tela cheia */
     double last_scale; /* mudar o tamanho das teclas volta à largura padrão */
+    char layout_cfg[16]; /* o layout das configurações já aplicado (o Select troca à parte) */
     /* áreas, em coordenadas da janela */
     double kx, ky;                /* origem das teclas */
     double border, title_h, resize_h; /* moldura desenhada (0 sem ela) */
@@ -97,12 +98,21 @@ struct BkOsk {
     double last_lx, last_ly;  /* último ponto do dedo na superfície */
     gulong after_paint_id;
     gboolean placed;
+    gboolean follow;        /* aberto no monitor do celular: a posição gravada não vale */
+    GdkMonitor *placed_mon; /* onde place_window pôs a janela (só para comparar) */
+    /* arrasto da janela pelo celular (coordenadas do monitor) */
+    DragKind rdrag;
+    const void *rdrag_id;
+    double rdrag_mx, rdrag_my;
+    int rdrag_px, rdrag_py, rdrag_w;
     guint save_id;
     GdkMonitor *pinned; /* aberto pela troca: o monitor do controle */
     gboolean auto_shown; /* aberto sozinho por um campo de texto */
 };
 
 static void osk_layout(BkOsk *osk);
+static void osk_follow(BkOsk *osk);
+static int configured_layout(BkApp *app);
 static void place_window(BkOsk *osk);
 static GdkMonitor *target_monitor(BkOsk *osk);
 static void schedule_save(BkOsk *osk);
@@ -433,17 +443,58 @@ draw_key(BkOsk *osk, cairo_t *cr, int i, gboolean down)
     }
 }
 
+/* Navegação pelo controle físico: as teclas (0..geom.n-1) e, depois delas,
+ * os botões visíveis da coluna, na ordem de cima para baixo. */
+static int
+nav_count(BkOsk *osk)
+{
+    int n = osk->geom.n;
+    for (int i = 0; i < COL_N; i++)
+        n += osk->col_on[i];
+    return n;
+}
+
+/* O botão da coluna do índice de navegação, ou -1 se for uma tecla. */
+static int
+nav_column(BkOsk *osk, int idx)
+{
+    if (idx < osk->geom.n)
+        return -1;
+    int k = idx - osk->geom.n;
+    for (int i = 0; i < COL_N; i++)
+        if (osk->col_on[i] && k-- == 0)
+            return i;
+    return -1;
+}
+
+/* Retângulo do item, em coordenadas da área. */
+static gboolean
+nav_rect(BkOsk *osk, int idx, BkRect *out)
+{
+    if (idx < 0)
+        return FALSE;
+    if (idx < osk->geom.n) {
+        const BkRect *rc = &osk->geom.rect[idx];
+        *out = (BkRect){ osk->kx + rc->x, osk->ky + rc->y, rc->w, rc->h };
+        return TRUE;
+    }
+    int c = nav_column(osk, idx);
+    if (c < 0)
+        return FALSE;
+    *out = osk->col[c];
+    return TRUE;
+}
+
 static void
 draw_cursor(BkOsk *osk, cairo_t *cr, int i, double r, double g, double b)
 {
-    if (i < 0 || i >= osk->geom.n)
+    BkRect rc;
+    if (!nav_rect(osk, i, &rc))
         return;
-    const BkRect *rc = &osk->geom.rect[i];
-    double x = osk->kx + rc->x, y = osk->ky + rc->y;
     double lw = MAX(2.5, osk->u * 0.08);
     cairo_set_source_rgb(cr, r, g, b);
     cairo_set_line_width(cr, lw);
-    cairo_rectangle(cr, x + lw / 2, y + lw / 2, rc->w - lw, rc->h - lw);
+    cairo_rectangle(cr, rc.x + lw / 2, rc.y + lw / 2, rc.w - lw, rc.h - lw);
     cairo_stroke(cr);
 }
 
@@ -562,6 +613,18 @@ static int
 key_at(BkOsk *osk, double x, double y)
 {
     return bk_geom_hit(&osk->geom, x - osk->kx, y - osk->ky);
+}
+
+/* Aciona um botão da coluna (COL_N: o fechar da moldura). */
+static void
+column_activate(BkOsk *osk, int b)
+{
+    if (b == COL_PAD)
+        bk_app_switch(osk->app, TRUE);
+    else if (b == COL_SETTINGS)
+        bk_settings_show(osk->app, "keyboard");
+    else /* ocultar, ou o fechar da moldura */
+        bk_osk_set_visible(osk, FALSE);
 }
 
 /* Botão da coluna sob (x, y); COL_N é o fechar da moldura desenhada. */
@@ -753,12 +816,7 @@ pointer_up(BkOsk *osk, GdkEventSequence *seq, double x, double y, gboolean cance
         gtk_widget_queue_draw(osk->area);
         if (cancel || button_at(osk, x, y) != b)
             return;
-        if (b == COL_PAD)
-            bk_app_switch(osk->app, TRUE);
-        else if (b == COL_SETTINGS)
-            bk_settings_show(osk->app, "keyboard");
-        else /* ocultar, ou o fechar da moldura */
-            bk_osk_set_visible(osk, FALSE);
+        column_activate(osk, b);
         return;
     }
     Slot *s = slot_for(osk, seq, FALSE);
@@ -801,6 +859,8 @@ on_touch(GtkWidget *w, GdkEventTouch *ev, gpointer data)
 {
     (void)w;
     BkOsk *osk = data;
+    if (bk_remote_shadows_local(osk->app->remote))
+        return TRUE; /* os dedos do celular já chegam por bk_osk_remote_touch */
     switch (ev->type) {
     case GDK_TOUCH_BEGIN:
         pointer_down(osk, ev->sequence, ev->x, ev->y, (GdkEvent *)ev);
@@ -876,6 +936,11 @@ on_flash_end(gpointer data)
 static void
 pad_press(BkOsk *osk, int idx)
 {
+    int c = nav_column(osk, idx);
+    if (c >= 0) { /* Controle, Configurar ou Ocultar, como um toque */
+        column_activate(osk, c);
+        return;
+    }
     if (idx < 0 || idx >= osk->geom.n)
         return;
     osk->flash = idx;
@@ -900,10 +965,14 @@ bk_osk_pad_action(BkOsk *osk, enum bwg_action a)
     case BWG_DOWN:
     case BWG_LEFT:
     case BWG_RIGHT: {
-        bwg_rect r[BK_GEOM_MAX];
-        for (int i = 0; i < osk->geom.n; i++)
-            r[i] = (bwg_rect){ osk->geom.rect[i].x, osk->geom.rect[i].y, osk->geom.rect[i].w, osk->geom.rect[i].h };
-        osk->cursor = bwg_spatial(r, osk->geom.n, osk->cursor, a);
+        bwg_rect r[BK_GEOM_MAX + COL_N];
+        int n = nav_count(osk);
+        for (int i = 0; i < n; i++) {
+            BkRect rc;
+            nav_rect(osk, i, &rc);
+            r[i] = (bwg_rect){ rc.x, rc.y, rc.w, rc.h };
+        }
+        osk->cursor = bwg_spatial(r, n, osk->cursor, a);
         gtk_widget_queue_draw(osk->area);
         return;
     }
@@ -985,6 +1054,9 @@ bk_osk_pad_sticks(BkOsk *osk, const bwg_pad *p, double deadzone)
         if (hypot(x[side], y[side]) < deadzone)
             continue; /* solto: o cursor fica onde estava */
         int idx = bk_geom_point(&osk->geom, side, x[side], y[side]);
+        int ncol = nav_count(osk) - osk->geom.n;
+        if (side == 1 && x[side] >= 0.92 && ncol > 0) /* na borda direita: a coluna, pela altura */
+            idx = osk->geom.n + MIN(ncol - 1, (int)((y[side] + 1) / 2 * ncol));
         if (idx != osk->point[side]) {
             osk->point[side] = idx;
             changed = TRUE;
@@ -1079,7 +1151,7 @@ place_window(BkOsk *osk)
     if (osk->kind != WIN_DOCKED) {
         if (!osk->placed) {
             const BkConfig *c = &osk->app->cfg;
-            if (c->float_x >= 0 && c->float_y >= 0) {
+            if (c->float_x >= 0 && c->float_y >= 0 && !osk->follow) {
                 osk->pos_x = c->float_x;
                 osk->pos_y = c->float_y;
             } else { /* embaixo, ao centro (com a moldura do gerenciador, se houver) */
@@ -1100,6 +1172,7 @@ place_window(BkOsk *osk)
         osk->pos_x = CLAMP(osk->pos_x, full.x - w + 80, full.x + full.width - 80);
         osk->pos_y = CLAMP(osk->pos_y, full.y, full.y + full.height - 40);
     }
+    osk->placed_mon = mon;
 #ifdef BK_HAVE_WAYLAND
     if (osk->layer) {
         GtkWindow *win = GTK_WINDOW(osk->win);
@@ -1411,6 +1484,17 @@ bk_osk_new(BkApp *app)
     osk->flash = -1;
     osk->col_down = -1;
     osk->last_scale = app->cfg.scale;
+    g_strlcpy(osk->layout_cfg, app->cfg.layout, sizeof osk->layout_cfg);
+    bk_state_init(&osk->st, configured_layout(app));
+    build_window(osk);
+    osk_layout(osk);
+    return osk;
+}
+
+/* O layout das configurações: o escolhido, ou o da sessão em "auto". */
+static int
+configured_layout(BkApp *app)
+{
     int layout = 0;
     const BkLayout *l = bk_layout_by_id(app->cfg.layout);
     if (!l && !strcmp(app->cfg.layout, "auto")) {
@@ -1426,10 +1510,7 @@ bk_osk_new(BkApp *app)
     for (int i = 0; l && i < bk_layout_count(); i++)
         if (bk_layout_get(i) == l)
             layout = i;
-    bk_state_init(&osk->st, layout);
-    build_window(osk);
-    osk_layout(osk);
-    return osk;
+    return layout;
 }
 
 void
@@ -1439,6 +1520,7 @@ bk_osk_set_visible(BkOsk *osk, gboolean visible)
     if (visible == bk_osk_visible(osk))
         return;
     if (visible) {
+        osk_follow(osk);
         osk_layout(osk); /* monitor e escala do momento */
         gtk_widget_show_all(osk->win);
         osk_layout(osk); /* X11: o strut precisa da janela mapeada */
@@ -1446,6 +1528,8 @@ bk_osk_set_visible(BkOsk *osk, gboolean visible)
         bk_osk_release(osk);
         gtk_widget_hide(osk->win);
         g_clear_object(&osk->pinned);
+        osk->follow = FALSE;
+        osk->rdrag = DRAG_NONE;
         /* o controle virtual que a troca manteve ligado sai junto, se o
          * controle na tela não voltou */
         if (osk->app->vpad && !bk_overlay_visible(osk->app->overlay)) {
@@ -1509,6 +1593,14 @@ bk_osk_set_monitor(BkOsk *osk, GdkMonitor *monitor)
 void
 bk_osk_reload(BkOsk *osk)
 {
+    if (strcmp(osk->layout_cfg, osk->app->cfg.layout)) {
+        /* outro layout nas configurações: vale já, com nada apertado */
+        g_strlcpy(osk->layout_cfg, osk->app->cfg.layout, sizeof osk->layout_cfg);
+        bk_osk_release(osk);
+        bk_state_init(&osk->st, configured_layout(osk->app));
+        osk->cursor = -1;
+        osk->point[0] = osk->point[1] = -1;
+    }
     WinKind kind;
     gboolean layer, ovr;
     int level;
@@ -1539,4 +1631,134 @@ bk_osk_reload(BkOsk *osk)
     if (osk->app->cfg.float_x < 0) /* "restaurar o lugar" nas configurações */
         osk->placed = FALSE;
     osk_layout(osk);
+}
+
+/* ---- toque remoto (celular; os dedos chegam por bk-remote.c) ---------------- */
+
+/* Com um celular conectado, o teclado abre no monitor transmitido (o único
+ * que o celular alcança), embaixo, ao centro, se estava em outro. */
+static void
+osk_follow(BkOsk *osk)
+{
+    BkRemote *r = osk->app->remote;
+    if (!bk_remote_present(r) || osk->pinned)
+        return;
+    GdkMonitor *m = bk_remote_monitor(r);
+    if (!m)
+        return;
+    osk->pinned = g_object_ref(m);
+    if (osk->kind != WIN_DOCKED) {
+        GdkMonitor *cur = osk->placed ? gdk_display_get_monitor_at_point(gdk_display_get_default(),
+                                                                         osk->pos_x + osk->width / 2, osk->pos_y + 8)
+                                      : NULL;
+        if (cur != m) {
+            osk->placed = FALSE;
+            osk->follow = TRUE;
+        }
+    }
+}
+
+void
+bk_osk_follow_remote(BkOsk *osk)
+{
+    if (!bk_osk_visible(osk) || osk->pinned)
+        return;
+    osk_follow(osk);
+    if (!osk->pinned || osk->placed_mon == osk->pinned)
+        return;
+    /* outro monitor: o layer-shell só troca antes de mapear */
+    bk_osk_release(osk);
+    gtk_widget_hide(osk->win);
+    osk_layout(osk);
+    gtk_widget_show_all(osk->win);
+    osk_layout(osk);
+}
+
+gboolean
+bk_osk_remote_rect(BkOsk *osk, GdkMonitor *monitor, GdkRectangle *r)
+{
+    if (!bk_osk_visible(osk) || !monitor)
+        return FALSE;
+    GdkRectangle full;
+    gdk_monitor_get_geometry(monitor, &full);
+    int x, y;
+    if (osk->layer) {
+        if (osk->kind == WIN_DOCKED) {
+            if (osk->placed_mon != monitor)
+                return FALSE;
+            x = full.x;
+            y = full.y + full.height - osk->height;
+        } else {
+            x = osk->pos_x;
+            y = osk->pos_y;
+        }
+    } else {
+        GdkWindow *gw = gtk_widget_get_window(osk->area);
+        if (!gw)
+            return FALSE;
+        gdk_window_get_origin(gw, &x, &y);
+    }
+    *r = (GdkRectangle){ x - full.x, y - full.y, osk->width, osk->height };
+    return r->x < full.width && r->y < full.height && r->x + r->width > 0 && r->y + r->height > 0;
+}
+
+void
+bk_osk_remote_touch(BkOsk *osk, GdkMonitor *monitor, const void *id, BkCtlPhase ph, double mx, double my)
+{
+    GdkEventSequence *seq = (GdkEventSequence *)id; /* só uma identidade, como a do GDK */
+    gboolean ending = ph == BKC_END || ph == BKC_CANCEL;
+    if (osk->rdrag != DRAG_NONE && id == osk->rdrag_id) {
+        /* arrastar a janela pelo celular: pela barra de título (mover) ou
+         * pela de baixo (largura), em coordenadas do monitor */
+        if (ending) {
+            osk->rdrag = DRAG_NONE;
+            osk->app->cfg.float_x = osk->pos_x;
+            osk->app->cfg.float_y = osk->pos_y;
+            schedule_save(osk);
+        } else if (osk->rdrag == DRAG_MOVE) {
+            osk->pos_x = osk->rdrag_px + (int)round(mx - osk->rdrag_mx);
+            osk->pos_y = osk->rdrag_py + (int)round(my - osk->rdrag_my);
+            place_window(osk);
+        } else {
+            double ratio = osk->height > 0 ? (double)osk->width / osk->height : 3;
+            int w = (int)round(osk->rdrag_w + MAX(mx - osk->rdrag_mx, (my - osk->rdrag_my) * ratio));
+            if (w != osk->width) {
+                osk->app->cfg.float_width = w;
+                osk_layout(osk);
+            }
+        }
+        return;
+    }
+    GdkRectangle r;
+    if (!bk_osk_remote_rect(osk, monitor, &r)) {
+        if (ending)
+            pointer_up(osk, seq, -1, -1, TRUE);
+        return;
+    }
+    double x = mx - r.x, y = my - r.y;
+    switch (ph) {
+    case BKC_BEGIN:
+        if (osk->kind == WIN_FLOAT_OWN && osk->rdrag == DRAG_NONE && button_at(osk, x, y) < 0 &&
+            (y < osk->border + osk->title_h || y >= osk->height - osk->border - osk->resize_h)) {
+            osk->rdrag = y < osk->border + osk->title_h ? DRAG_MOVE : DRAG_RESIZE;
+            osk->rdrag_id = id;
+            osk->rdrag_mx = mx;
+            osk->rdrag_my = my;
+            osk->rdrag_px = osk->pos_x;
+            osk->rdrag_py = osk->pos_y;
+            osk->rdrag_w = osk->width;
+            return;
+        }
+        pointer_down(osk, seq, x, y, NULL);
+        break;
+    case BKC_MOVE:
+        pointer_move(osk, seq, x, y, NULL);
+        break;
+    case BKC_END:
+        pointer_up(osk, seq, x, y, FALSE);
+        break;
+    case BKC_CANCEL:
+        pointer_up(osk, seq, x, y, TRUE);
+        break;
+    }
 }
