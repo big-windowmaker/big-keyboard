@@ -22,7 +22,9 @@ core_dep = declare_dependency(link_with: core, include_directories: core_inc, de
 
 gtk = dependency('gtk+-3.0', version: '>= 3.24')
 xkb = dependency('xkbcommon')
-app_deps = [core_dep, gtk, gio, xkb]
+# atspi: abrir o teclado ao focar um campo de texto (como no celular)
+atspi = dependency('atspi-2')
+app_deps = [core_dep, gtk, gio, xkb, atspi]
 app_args = []
 
 x11 = dependency('x11', required: get_option('x11'))
@@ -56,7 +58,7 @@ if wl_client.found() and gtk_wl.found() and layer_shell.found()
 endif
 
 executable('big-keyboard',
-  'src/ui/bk-app.c', 'src/ui/bk-osk.c', 'src/ui/bk-overlay.c', 'src/ui/bk-outputs.c', 'src/ui/bk-settings.c',
+  'src/ui/bk-app.c', 'src/ui/bk-focus.c', 'src/ui/bk-osk.c', 'src/ui/bk-overlay.c', 'src/ui/bk-outputs.c', 'src/ui/bk-settings.c',
   'src/input/bk-inject.c',
   wl_src, c_args: app_args, dependencies: app_deps, include_directories: include_directories('src/ui'),
   install: true)

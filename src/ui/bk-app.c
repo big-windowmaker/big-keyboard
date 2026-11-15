@@ -19,6 +19,7 @@
  * polling; o teclado fechado não desenha.
  */
 #include "bk-app.h"
+#include "bk-focus.h"
 
 #include <glib-unix.h>
 #include <locale.h>
@@ -208,11 +209,56 @@ pad_apply_config(BkApp *app)
         pad_watch(app);
 }
 
+/* ---- campo de texto em foco (como no celular) ------------------------------ */
+
+static gboolean
+on_focus_hide(gpointer data)
+{
+    BkApp *app = data;
+    app->focus_hide_id = 0;
+    if (bk_osk_auto_shown(app->osk))
+        bk_osk_set_visible(app->osk, FALSE);
+    return G_SOURCE_REMOVE;
+}
+
+/* Um campo de texto ganhou o foco: abre (se fechado). Saiu de um: fecha,
+ * se foi aberto assim; com uma pequena espera, porque passar de um campo
+ * a outro tira e põe o foco. */
+static void
+on_text_focus(gboolean editable, gpointer data)
+{
+    BkApp *app = data;
+    if (app->focus_hide_id) {
+        g_source_remove(app->focus_hide_id);
+        app->focus_hide_id = 0;
+    }
+    if (editable) {
+        if (!bk_osk_visible(app->osk)) {
+            bk_osk_set_visible(app->osk, TRUE);
+            bk_osk_set_auto_shown(app->osk, TRUE);
+        }
+    } else if (app->cfg.auto_hide && bk_osk_auto_shown(app->osk)) {
+        app->focus_hide_id = g_timeout_add(400, on_focus_hide, app);
+    }
+}
+
+static void
+focus_apply_config(BkApp *app)
+{
+    if (app->cfg.auto_show && !app->focus) {
+        app->focus = bk_focus_new(on_text_focus, app);
+    } else if (!app->cfg.auto_show && app->focus) {
+        bk_focus_free(app->focus);
+        app->focus = NULL;
+    }
+}
+
 void
 bk_app_config_changed(BkApp *app)
 {
     app->dark = read_dark(app);
     pad_apply_config(app);
+    focus_apply_config(app);
     if (app->osk)
         bk_osk_reload(app->osk);
 }
@@ -412,6 +458,7 @@ on_startup(GApplication *g, gpointer data)
     if (!strcmp(app->cfg.remote_touch, "off"))
         bk_overlay_remote_changed(app->overlay);
     pad_apply_config(app);
+    focus_apply_config(app);
     char *theme = g_build_filename(g_get_user_config_dir(), "big-wm", "theme", NULL);
     GFile *f = g_file_new_for_path(theme);
     GFileMonitor *m = g_file_monitor_file(f, G_FILE_MONITOR_NONE, NULL, NULL);

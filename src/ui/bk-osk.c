@@ -1,13 +1,24 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
  *
- * O teclado na tela da sessão: uma janela OPENSTEP (barra de título preta,
- * teclas em relevo) desenhada com cairo numa só área, para ficar idêntica ao
- * teclado da tela de bloqueio e barata de redesenhar.
+ * O teclado na tela da sessão: teclas OPENSTEP em relevo desenhadas com cairo
+ * numa só área, e uma coluna à direita com botões grandes (controle na tela,
+ * configurações e, sem moldura, ocultar).
  *
- * Nunca pega o foco: no Wayland é uma superfície layer-shell (camada TOP,
- * keyboard-interactivity NONE); no X11, uma janela tipo DOCK que não aceita
- * foco. Com "reservar espaço", as janelas sobem para não ficar por baixo
- * (zona exclusiva do layer-shell; _NET_WM_STRUT_PARTIAL no X11).
+ * Dois modos (Configurações > Teclado):
+ *   flutuante  janela com a moldura do Window Maker (título, fechar, barra de
+ *              redimensionar): vai para qualquer lugar e muda de tamanho, as
+ *              teclas acompanham com a proporção mantida. Lembra o lugar e o
+ *              tamanho.
+ *   encaixado  embaixo, na largura inteira do monitor, como no celular;
+ *              pode reservar o espaço (as janelas sobem).
+ *
+ * Nunca pega o foco. No X11 a moldura flutuante é a do próprio Window Maker
+ * (a janela não aceita foco: WM_HINTS input=False). No Wayland, uma janela
+ * comum ganharia o foco ao ser tocada e as teclas iriam para ela mesma; ali o
+ * teclado é uma superfície layer-shell (keyboard-interactivity NONE) com a
+ * moldura do Window Maker desenhada por ele. "Por cima até de tela cheia":
+ * camada OVERLAY no Wayland; no X11, janela override-redirect (também com a
+ * moldura desenhada) que volta ao topo quando o gerenciador reempilha.
  *
  * Entrada: mouse e toques (cada dedo independente) apertam ao soltar, com
  * repetição ao segurar; controle físico com cursor de tecla em tecla
@@ -18,6 +29,7 @@
 #include "bk-geom.h"
 
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 #ifdef BK_HAVE_X11
 #include <gdk/gdkx.h>
@@ -37,14 +49,30 @@ typedef struct {
     gboolean repeated;
 } Slot;
 
+typedef enum { WIN_DOCKED, WIN_FLOAT_WM, WIN_FLOAT_OWN } WinKind;
+typedef enum { COL_HIDE, COL_PAD, COL_SETTINGS, COL_N } ColButton;
+typedef enum { DRAG_NONE, DRAG_MOVE, DRAG_RESIZE } DragKind;
+
 struct BkOsk {
     BkApp *app;
     GtkWidget *win, *area;
     BkState st;
     BkGeom geom;
-    double u, gap, pad, title_h, s;
+    double u, gap, pad, s;
     int width, height;
-    gboolean layer;
+    /* janela */
+    WinKind kind;
+    gboolean layer;    /* superfície layer-shell (Wayland) */
+    gboolean override; /* X11: override-redirect (acima até da tela cheia) */
+    int level;         /* 0 normal, 1 acima das janelas, 2 acima da tela cheia */
+    double last_scale; /* mudar o tamanho das teclas volta à largura padrão */
+    /* áreas, em coordenadas da janela */
+    double kx, ky;                /* origem das teclas */
+    double border, title_h, resize_h; /* moldura desenhada (0 sem ela) */
+    BkRect col[COL_N];
+    gboolean col_on[COL_N];
+    int col_down;                 /* botão da coluna apertado, -1 nenhum */
+    GdkEventSequence *col_seq;
     Slot slot[MAX_SLOTS];
     guint repeat_id;
     int repeat_slot;
@@ -52,19 +80,32 @@ struct BkOsk {
     int point[2];           /* modo apontar: cursores esquerdo/direito; -1 nenhum */
     int flash;              /* tecla apertada pelo controle (feedback curto) */
     guint flash_id;
-    /* arrastar pela barra de título (Wayland: margens do layer-shell) */
-    gboolean dragging;
-    double drag_x, drag_y;
-    int margin_x, margin_y;
-    /* botão do controle: troca ao soltar o dedo, não ao tocar (o controle
-     * pega o touchscreen do celular; um dedo ainda na tela ficaria preso no
-     * compositor) */
-    gboolean switch_armed;
-    GdkEventSequence *switch_seq;
+    /* moldura desenhada: arrastar o título move, a barra de baixo
+     * redimensiona (o canto de cima à esquerda fica parado) */
+    DragKind drag;
+    GdkEventSequence *drag_seq;
+    double drag_x, drag_y; /* início: tela (X11) ou superfície (layer-shell) */
+    int drag_px, drag_py, drag_w;
+    int pos_x, pos_y;      /* janela flutuante, coordenadas da tela */
+    /* mover no layer-shell: o dedo só é conhecido em relação à superfície,
+     * que anda debaixo dele. Cada posição nova só é pedida depois que o
+     * compositor confirmou a anterior (wl_display_sync após o quadro), e o
+     * dedo é lido em relação à posição já aplicada: nada de ida e volta. */
+    int applied_x, applied_y; /* posição que o compositor já usa */
+    int asked_x, asked_y;     /* pedida, à espera da confirmação */
+    gboolean move_pending, move_dirty;
+    double last_lx, last_ly;  /* último ponto do dedo na superfície */
+    gulong after_paint_id;
+    gboolean placed;
+    guint save_id;
     GdkMonitor *pinned; /* aberto pela troca: o monitor do controle */
+    gboolean auto_shown; /* aberto sozinho por um campo de texto */
 };
 
 static void osk_layout(BkOsk *osk);
+static void place_window(BkOsk *osk);
+static GdkMonitor *target_monitor(BkOsk *osk);
+static void schedule_save(BkOsk *osk);
 static void on_monitor_removed(GdkDisplay *d, GdkMonitor *m, gpointer data);
 
 /* ---- desenho ------------------------------------------------------------- */
@@ -190,15 +231,154 @@ bk_draw_icon_keyboard(cairo_t *cr, double cx, double cy, double s, double r, dou
     cairo_restore(cr);
 }
 
-/* Botões da barra de título: [✕] [⚙] [controle] da direita para a esquerda. */
-#define TITLE_BUTTONS 3
+/* Engrenagem (configurações): dentes em volta de um anel. */
 static void
-title_button_rect(BkOsk *osk, int i, double *x, double *y, double *w, double *h)
+draw_icon_gear(cairo_t *cr, double cx, double cy, double s, double ink, double face)
+{
+    double R = s / 2, body = R * 0.72, hole = R * 0.30, tw = R * 0.42;
+    cairo_save(cr);
+    cairo_set_source_rgb(cr, ink, ink, ink);
+    for (int i = 0; i < 8; i++) {
+        cairo_save(cr);
+        cairo_translate(cr, cx, cy);
+        cairo_rotate(cr, i * M_PI / 4);
+        cairo_rectangle(cr, -tw / 2, -R, tw, R);
+        cairo_restore(cr);
+    }
+    cairo_fill(cr);
+    cairo_arc(cr, cx, cy, body, 0, 2 * M_PI);
+    cairo_fill(cr);
+    cairo_set_source_rgb(cr, face, face, face);
+    cairo_arc(cr, cx, cy, hole, 0, 2 * M_PI);
+    cairo_fill(cr);
+    cairo_restore(cr);
+}
+
+/* Ocultar: o teclado com uma seta para baixo. */
+static void
+draw_icon_hide(cairo_t *cr, double cx, double cy, double s, double ink)
+{
+    bk_draw_icon_keyboard(cr, cx, cy - s * 0.12, s * 0.9, ink, ink, ink, 1);
+    double t = s * 0.16, y = cy + s * 0.30;
+    cairo_set_source_rgb(cr, ink, ink, ink);
+    cairo_move_to(cr, cx - t, y - t / 2);
+    cairo_line_to(cr, cx + t, y - t / 2);
+    cairo_line_to(cr, cx, y + t / 2);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+}
+
+static gboolean
+in_rect(const BkRect *r, double x, double y)
+{
+    return x >= r->x && x < r->x + r->w && y >= r->y && y < r->y + r->h;
+}
+
+/* Moldura desenhada (Wayland e "acima da tela cheia" no X11), como a do
+ * Window Maker: barra de título preta com o nome ao centro e o botão de
+ * fechar à direita; embaixo, a barra de redimensionar com os cantos. */
+static void
+close_rect(BkOsk *osk, BkRect *r)
 {
     double b = osk->title_h - 6;
-    *w = *h = b;
-    *x = osk->width - 4 - (i + 1) * (b + 4);
-    *y = 3;
+    *r = (BkRect){ osk->width - osk->border - 3 - b, osk->border + 3, b, b };
+}
+
+static void
+draw_frame(BkOsk *osk, cairo_t *cr, const char *title)
+{
+    double b = osk->border, w = osk->width, h = osk->height, th = osk->title_h, rh = osk->resize_h;
+    /* contorno preto de 1 px */
+    cairo_set_source_rgb(cr, 0, 0, 0);
+    cairo_rectangle(cr, 0, 0, w, h);
+    cairo_rectangle(cr, b, b, w - 2 * b, h - 2 * b);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+    cairo_fill(cr);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
+    /* título: degradê preto, o nome ao centro */
+    cairo_pattern_t *g = cairo_pattern_create_linear(0, b, 0, b + th);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.16, 0.16, 0.18);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0, 0, 0);
+    cairo_rectangle(cr, b, b, w - 2 * b, th);
+    cairo_set_source(cr, g);
+    cairo_fill(cr);
+    cairo_pattern_destroy(g);
+    bk_draw_bevel(cr, b, b, w - 2 * b, th, TRUE, TRUE);
+    BkRect c;
+    close_rect(osk, &c);
+    text(cr, title, (b + c.x) / 2, b + th / 2, th * 0.52, TRUE, 1, 1, 1, 0);
+    /* fechar: botão cinza em relevo com o X */
+    gboolean down = osk->col_down == COL_N; /* COL_N: o fechar da moldura */
+    double f = down ? 0.56 : 0.75;
+    cairo_set_source_rgb(cr, f, f, f);
+    cairo_rectangle(cr, c.x, c.y, c.w, c.h);
+    cairo_fill(cr);
+    bk_draw_bevel(cr, c.x, c.y, c.w, c.h, !down, FALSE);
+    double m = c.w * 0.28, lw = MAX(1.5, c.w * 0.13);
+    cairo_set_source_rgb(cr, 0, 0, 0);
+    cairo_set_line_width(cr, lw);
+    cairo_move_to(cr, c.x + m, c.y + m);
+    cairo_line_to(cr, c.x + c.w - m, c.y + c.h - m);
+    cairo_move_to(cr, c.x + c.w - m, c.y + m);
+    cairo_line_to(cr, c.x + m, c.y + c.h - m);
+    cairo_stroke(cr);
+    /* barra de redimensionar com os dois cantos marcados */
+    double ry = h - b - rh, corner = MIN(30, w / 4);
+    double face = osk->app->dark ? 0.24 : 0.667;
+    cairo_set_source_rgb(cr, face, face, face);
+    cairo_rectangle(cr, b, ry, w - 2 * b, rh);
+    cairo_fill(cr);
+    bk_draw_bevel(cr, b, ry, w - 2 * b, rh, TRUE, osk->app->dark);
+    for (int i = 0; i < 2; i++) {
+        double x = i == 0 ? b + corner : w - b - corner;
+        cairo_set_source_rgb(cr, 0, 0, 0);
+        cairo_rectangle(cr, x - 1, ry + 1, 1, rh - 2);
+        cairo_fill(cr);
+        cairo_set_source_rgb(cr, 1, 1, 1);
+        cairo_rectangle(cr, x, ry + 1, 1, rh - 2);
+        cairo_fill(cr);
+    }
+}
+
+static void
+draw_column(BkOsk *osk, cairo_t *cr)
+{
+    static const char *labels[COL_N] = { "Ocultar", "Controle", "Configurar" };
+    gboolean dark = osk->app->dark;
+    for (int i = 0; i < COL_N; i++) {
+        if (!osk->col_on[i])
+            continue;
+        const BkRect *r = &osk->col[i];
+        gboolean down = osk->col_down == i;
+        double face = dark ? (down ? 0.17 : 0.24) : (down ? 0.56 : 0.66);
+        cairo_set_source_rgb(cr, face, face, face);
+        cairo_rectangle(cr, r->x, r->y, r->w, r->h);
+        cairo_fill(cr);
+        bk_draw_bevel(cr, r->x, r->y, r->w, r->h, !down, dark);
+        double ink = dark ? 0.95 : 0.0, o = down ? 1 : 0;
+        /* rótulo embaixo, se couber; o ícone ocupa o resto */
+        double fs = MAX(9, osk->u * 0.22);
+        PangoLayout *pl = pango_cairo_create_layout(cr);
+        PangoFontDescription *fd = pango_font_description_from_string("Sans");
+        pango_font_description_set_absolute_size(fd, fs * PANGO_SCALE);
+        pango_layout_set_font_description(pl, fd);
+        pango_layout_set_text(pl, labels[i], -1);
+        int lw, lh;
+        pango_layout_get_pixel_size(pl, &lw, &lh);
+        pango_font_description_free(fd);
+        g_object_unref(pl);
+        gboolean label = lw <= r->w - 6 && r->h >= osk->u * 1.4;
+        double ih = label ? r->h - lh - 6 : r->h;
+        double is = MIN(r->w, ih) * 0.62, cx = r->x + r->w / 2 + o, cy = r->y + ih / 2 + o + (label ? 3 : 0);
+        if (i == COL_HIDE)
+            draw_icon_hide(cr, cx, cy, is, ink);
+        else if (i == COL_PAD)
+            bk_draw_icon_gamepad(cr, cx, cy, is, ink, ink, ink, 1);
+        else
+            draw_icon_gear(cr, cx, cy, is * 0.9, ink, face);
+        if (label)
+            text(cr, labels[i], r->x + r->w / 2 + o, r->y + r->h - lh / 2.0 - 4 + o, fs, FALSE, ink, ink, ink, 0);
+    }
 }
 
 static void
@@ -207,7 +387,7 @@ draw_key(BkOsk *osk, cairo_t *cr, int i, gboolean down)
     const BkKey *k = osk->geom.key[i];
     const BkRect *r = &osk->geom.rect[i];
     gboolean dark = osk->app->dark;
-    double x = osk->pad + r->x, y = osk->title_h + osk->pad + r->y, w = r->w, h = r->h;
+    double x = osk->kx + r->x, y = osk->ky + r->y, w = r->w, h = r->h;
     unsigned mods = bk_state_mods(&osk->st);
     gboolean latched = k->kind == BK_KEY_MOD && (osk->st.latched & k->mod);
     gboolean locked = (k->kind == BK_KEY_MOD && (osk->st.locked & k->mod)) || (k->kind == BK_KEY_CAPS && osk->st.caps);
@@ -259,7 +439,7 @@ draw_cursor(BkOsk *osk, cairo_t *cr, int i, double r, double g, double b)
     if (i < 0 || i >= osk->geom.n)
         return;
     const BkRect *rc = &osk->geom.rect[i];
-    double x = osk->pad + rc->x, y = osk->title_h + osk->pad + rc->y;
+    double x = osk->kx + rc->x, y = osk->ky + rc->y;
     double lw = MAX(2.5, osk->u * 0.08);
     cairo_set_source_rgb(cr, r, g, b);
     cairo_set_line_width(cr, lw);
@@ -273,29 +453,19 @@ on_draw(GtkWidget *w, cairo_t *cr, gpointer data)
     (void)w;
     BkOsk *osk = data;
     gboolean dark = osk->app->dark;
-    /* sombra discreta e corpo */
+    /* corpo */
     double body = dark ? 0.2 : 0.667;
     cairo_set_source_rgb(cr, body, body, body);
-    cairo_paint(cr);
+    cairo_rectangle(cr, 0, 0, osk->width, osk->height);
+    cairo_fill(cr);
     bk_draw_bevel(cr, 0, 0, osk->width, osk->height, TRUE, dark);
-    const char *panel = osk->st.panel == BK_PANEL_FN ? "Fn" : osk->st.panel == BK_PANEL_SYMBOLS ? "☺" : "";
-    char title[96];
-    g_snprintf(title, sizeof title, "Big WM Virtual Keyboard%s%s", *panel ? " · " : "", panel);
-    bk_draw_titlebar(cr, 0, 0, osk->width, osk->title_h, title, osk->title_h * 0.5);
-    static const char *glyphs[] = { "✕", "⚙" };
-    for (int i = 0; i < TITLE_BUTTONS; i++) {
-        double x, y, bw, bh;
-        title_button_rect(osk, i, &x, &y, &bw, &bh);
-        gboolean down = i == 2 && osk->switch_armed;
-        cairo_set_source_rgb(cr, down ? 0.56 : 0.75, down ? 0.56 : 0.75, down ? 0.56 : 0.75);
-        cairo_rectangle(cr, x, y, bw, bh);
-        cairo_fill(cr);
-        bk_draw_bevel(cr, x, y, bw, bh, !down, FALSE);
-        if (i < 2)
-            text(cr, glyphs[i], x + bw / 2, y + bh / 2, bh * 0.7, TRUE, 0, 0, 0, 0);
-        else /* controle na tela */
-            bk_draw_icon_gamepad(cr, x + bw / 2, y + bh / 2 + (down ? 1 : 0), bh * 0.78, 0, 0, 0, 1);
+    if (osk->kind == WIN_FLOAT_OWN) {
+        const char *panel = osk->st.panel == BK_PANEL_FN ? "Fn" : osk->st.panel == BK_PANEL_SYMBOLS ? "☺" : "";
+        char title[96];
+        g_snprintf(title, sizeof title, "Teclado virtual%s%s", *panel ? " · " : "", panel);
+        draw_frame(osk, cr, title);
     }
+    draw_column(osk, cr);
     for (int i = 0; i < osk->geom.n; i++) {
         gboolean down = i == osk->flash;
         for (int s = 0; s < MAX_SLOTS; s++)
@@ -391,42 +561,119 @@ slot_for(BkOsk *osk, GdkEventSequence *seq, gboolean create)
 static int
 key_at(BkOsk *osk, double x, double y)
 {
-    return bk_geom_hit(&osk->geom, x - osk->pad, y - osk->title_h - osk->pad);
+    return bk_geom_hit(&osk->geom, x - osk->kx, y - osk->ky);
 }
+
+/* Botão da coluna sob (x, y); COL_N é o fechar da moldura desenhada. */
+static int
+button_at(BkOsk *osk, double x, double y)
+{
+    for (int i = 0; i < COL_N; i++)
+        if (osk->col_on[i] && in_rect(&osk->col[i], x, y))
+            return i;
+    if (osk->kind == WIN_FLOAT_OWN) {
+        BkRect c;
+        close_rect(osk, &c);
+        if (in_rect(&c, x, y))
+            return COL_N;
+    }
+    return -1;
+}
+
+/* Onde medir o arrasto: na tela (X11, a janela tem posição real) ou na
+ * própria superfície (layer-shell: o GTK não sabe onde ela está). */
+static void
+drag_coords(BkOsk *osk, GdkEvent *ev, double x, double y, double *dx, double *dy)
+{
+    *dx = x;
+    *dy = y;
+    if (!osk->layer && ev)
+        gdk_event_get_root_coords(ev, dx, dy);
+}
+
+#ifdef BK_HAVE_WAYLAND
+static void layer_move_apply(BkOsk *osk);
+
+static void
+on_move_synced(void *data, struct wl_callback *cb, uint32_t t)
+{
+    (void)t;
+    BkOsk *osk = data;
+    wl_callback_destroy(cb);
+    osk->applied_x = osk->asked_x;
+    osk->applied_y = osk->asked_y;
+    osk->move_pending = FALSE;
+    if (osk->move_dirty && osk->drag == DRAG_MOVE)
+        layer_move_apply(osk);
+}
+
+static const struct wl_callback_listener move_sync_listener = { on_move_synced };
+
+/* O quadro com as margens novas foi enviado: o sync volta depois que o
+ * compositor o processou. */
+static void
+on_after_paint(GdkFrameClock *fc, gpointer data)
+{
+    BkOsk *osk = data;
+    g_signal_handler_disconnect(fc, osk->after_paint_id);
+    osk->after_paint_id = 0;
+    struct wl_display *dpy = gdk_wayland_display_get_wl_display(gtk_widget_get_display(osk->win));
+    struct wl_callback *cb = wl_display_sync(dpy);
+    wl_callback_add_listener(cb, &move_sync_listener, osk);
+    wl_display_flush(dpy);
+}
+
+static void
+layer_move_apply(BkOsk *osk)
+{
+    osk->move_dirty = FALSE;
+    int x = osk->applied_x + (int)round(osk->last_lx - osk->drag_x);
+    int y = osk->applied_y + (int)round(osk->last_ly - osk->drag_y);
+    if (x == osk->applied_x && y == osk->applied_y)
+        return;
+    osk->pos_x = x;
+    osk->pos_y = y;
+    place_window(osk); /* pode limitar à tela */
+    osk->asked_x = osk->pos_x;
+    osk->asked_y = osk->pos_y;
+    osk->move_pending = TRUE;
+    GdkFrameClock *fc = gtk_widget_get_frame_clock(osk->win);
+    if (fc && !osk->after_paint_id)
+        osk->after_paint_id = g_signal_connect(fc, "after-paint", G_CALLBACK(on_after_paint), osk);
+    gtk_widget_queue_draw(osk->area);
+}
+#endif
 
 /* Começo de um toque ou clique (x, y na área). */
 static void
 pointer_down(BkOsk *osk, GdkEventSequence *seq, double x, double y, GdkEvent *ev)
 {
-    if (y < osk->title_h) {
-        for (int i = 0; i < TITLE_BUTTONS; i++) {
-            double bx, by, bw, bh;
-            title_button_rect(osk, i, &bx, &by, &bw, &bh);
-            if (x >= bx && x < bx + bw && y >= by && y < by + bh) {
-                if (i == 0) {
-                    bk_osk_set_visible(osk, FALSE);
-                } else if (i == 1) {
-                    bk_settings_show(osk->app, "keyboard");
-                } else if (!osk->switch_armed) {
-                    osk->switch_armed = TRUE;
-                    osk->switch_seq = seq;
-                    gtk_widget_queue_draw(osk->area);
-                }
-                return;
-            }
+    int b = button_at(osk, x, y);
+    if (b >= 0) {
+        /* age ao soltar, não ao tocar: a troca pelo controle pega o
+         * touchscreen do celular, e um dedo ainda na tela ficaria preso */
+        if (osk->col_down < 0) {
+            osk->col_down = b;
+            osk->col_seq = seq;
+            gtk_widget_queue_draw(osk->area);
         }
-        /* arrastar: o X11 move a janela; no Wayland mudam as margens */
-#ifdef BK_HAVE_WAYLAND
-        if (osk->layer) {
-            osk->dragging = TRUE;
-            gdk_event_get_root_coords(ev, &osk->drag_x, &osk->drag_y);
+        return;
+    }
+    if (osk->kind == WIN_FLOAT_OWN && osk->drag == DRAG_NONE) {
+        gboolean title = y < osk->border + osk->title_h;
+        gboolean bottom = y >= osk->height - osk->border - osk->resize_h;
+        if (title || bottom) {
+            osk->drag = title ? DRAG_MOVE : DRAG_RESIZE;
+            osk->drag_seq = seq;
+            drag_coords(osk, ev, x, y, &osk->drag_x, &osk->drag_y);
+            osk->drag_px = osk->pos_x;
+            osk->drag_py = osk->pos_y;
+            osk->drag_w = osk->width;
+            osk->applied_x = osk->pos_x;
+            osk->applied_y = osk->pos_y;
+            osk->move_pending = osk->move_dirty = FALSE;
             return;
         }
-#endif
-        if (ev && ev->type == GDK_BUTTON_PRESS)
-            gtk_window_begin_move_drag(GTK_WINDOW(osk->win), (int)ev->button.button, (int)ev->button.x_root,
-                                       (int)ev->button.y_root, ev->button.time);
-        return;
     }
     Slot *s = slot_for(osk, seq, TRUE);
     if (!s)
@@ -444,23 +691,43 @@ pointer_down(BkOsk *osk, GdkEventSequence *seq, double x, double y, GdkEvent *ev
 static void
 pointer_move(BkOsk *osk, GdkEventSequence *seq, double x, double y, GdkEvent *ev)
 {
-    (void)x;
-    (void)y;
+    if (osk->drag != DRAG_NONE && seq == osk->drag_seq) {
+        double px, py;
+        drag_coords(osk, ev, x, y, &px, &py);
+        if (osk->drag == DRAG_MOVE) {
+            if (osk->layer) {
 #ifdef BK_HAVE_WAYLAND
-    if (osk->dragging && seq == NULL && ev) {
-        double rx, ry;
-        gdk_event_get_root_coords(ev, &rx, &ry);
-        osk->margin_x += (int)(rx - osk->drag_x);
-        osk->margin_y -= (int)(ry - osk->drag_y);
-        osk->drag_x = rx;
-        osk->drag_y = ry;
-        gtk_layer_set_anchor(GTK_WINDOW(osk->win), GTK_LAYER_SHELL_EDGE_LEFT, TRUE);
-        gtk_layer_set_margin(GTK_WINDOW(osk->win), GTK_LAYER_SHELL_EDGE_LEFT, MAX(0, osk->margin_x));
-        gtk_layer_set_margin(GTK_WINDOW(osk->win), GTK_LAYER_SHELL_EDGE_BOTTOM, MAX(0, osk->margin_y));
+                osk->last_lx = px;
+                osk->last_ly = py;
+                if (osk->move_pending)
+                    osk->move_dirty = TRUE; /* aplica quando o compositor confirmar */
+                else
+                    layer_move_apply(osk);
+#endif
+            } else {
+                osk->pos_x = osk->drag_px + (int)round(px - osk->drag_x);
+                osk->pos_y = osk->drag_py + (int)round(py - osk->drag_y);
+                place_window(osk);
+            }
+        } else {
+            /* o canto de cima à esquerda fica; a largura segue o dedo e a
+             * altura vem da proporção das teclas */
+            double dx = x - osk->drag_x, dy = y - osk->drag_y;
+            if (!osk->layer) {
+                double rx, ry;
+                drag_coords(osk, ev, x, y, &rx, &ry);
+                dx = rx - osk->drag_x;
+                dy = ry - osk->drag_y;
+            }
+            double ratio = osk->height > 0 ? (double)osk->width / osk->height : 3;
+            int w = (int)round(osk->drag_w + MAX(dx, dy * ratio));
+            if (w != osk->width) {
+                osk->app->cfg.float_width = w;
+                osk_layout(osk);
+            }
+        }
         return;
     }
-#endif
-    (void)ev;
     /* um dedo que escorrega para fora da tecla cancela (como num teclado de verdade) */
     Slot *s = slot_for(osk, seq, FALSE);
     if (s && s->key >= 0 && key_at(osk, x, y) != s->key) {
@@ -473,14 +740,25 @@ pointer_move(BkOsk *osk, GdkEventSequence *seq, double x, double y, GdkEvent *ev
 static void
 pointer_up(BkOsk *osk, GdkEventSequence *seq, double x, double y, gboolean cancel)
 {
-    osk->dragging = FALSE;
-    if (osk->switch_armed && seq == osk->switch_seq) {
-        osk->switch_armed = FALSE;
-        double bx, by, bw, bh;
-        title_button_rect(osk, 2, &bx, &by, &bw, &bh);
+    if (osk->drag != DRAG_NONE && seq == osk->drag_seq) {
+        osk->drag = DRAG_NONE;
+        osk->app->cfg.float_x = osk->pos_x;
+        osk->app->cfg.float_y = osk->pos_y;
+        schedule_save(osk);
+        return;
+    }
+    if (osk->col_down >= 0 && seq == osk->col_seq) {
+        int b = osk->col_down;
+        osk->col_down = -1;
         gtk_widget_queue_draw(osk->area);
-        if (!cancel && x >= bx && x < bx + bw && y >= by && y < by + bh)
+        if (cancel || button_at(osk, x, y) != b)
+            return;
+        if (b == COL_PAD)
             bk_app_switch(osk->app, TRUE);
+        else if (b == COL_SETTINGS)
+            bk_settings_show(osk->app, "keyboard");
+        else /* ocultar, ou o fechar da moldura */
+            bk_osk_set_visible(osk, FALSE);
         return;
     }
     Slot *s = slot_for(osk, seq, FALSE);
@@ -528,7 +806,7 @@ on_touch(GtkWidget *w, GdkEventTouch *ev, gpointer data)
         pointer_down(osk, ev->sequence, ev->x, ev->y, (GdkEvent *)ev);
         break;
     case GDK_TOUCH_UPDATE:
-        pointer_move(osk, ev->sequence, ev->x, ev->y, NULL);
+        pointer_move(osk, ev->sequence, ev->x, ev->y, (GdkEvent *)ev);
         break;
     case GDK_TOUCH_END:
         pointer_up(osk, ev->sequence, ev->x, ev->y, FALSE);
@@ -718,16 +996,49 @@ bk_osk_pad_sticks(BkOsk *osk, const bwg_pad *p, double deadzone)
 
 /* ---- janela -------------------------------------------------------------- */
 
+/* Qual janela: o modo, o "por cima" e o que a sessão permite. */
+static void
+choose_kind(BkOsk *osk, WinKind *kind, gboolean *layer, gboolean *ovr, int *level)
+{
+    const BkConfig *c = &osk->app->cfg;
+    *level = !strcmp(c->stacking, "normal") ? 0 : !strcmp(c->stacking, "fullscreen") ? 2 : 1;
+    gboolean docked = !strcmp(c->window_mode, "docked");
+    *layer = *ovr = FALSE;
+#ifdef BK_HAVE_WAYLAND
+    *layer = GDK_IS_WAYLAND_DISPLAY(gdk_display_get_default()) && gtk_layer_is_supported();
+#endif
+    gboolean x11 = FALSE;
+#ifdef BK_HAVE_X11
+    x11 = GDK_IS_X11_DISPLAY(gdk_display_get_default());
+#endif
+    if (*layer) {
+        *kind = docked ? WIN_DOCKED : WIN_FLOAT_OWN;
+    } else if (x11 && *level == 2) {
+        /* acima da tela cheia: fora do gerenciador, com a moldura desenhada */
+        *ovr = TRUE;
+        *kind = docked ? WIN_DOCKED : WIN_FLOAT_OWN;
+    } else {
+        /* X11 com a moldura do gerenciador; ou um Wayland sem layer-shell
+         * (GNOME): uma janela comum, o melhor que dá */
+        *kind = docked && x11 ? WIN_DOCKED : WIN_FLOAT_WM;
+    }
+}
+
 static GdkMonitor *
 target_monitor(BkOsk *osk)
 {
-    GdkDisplay *d = gtk_widget_get_display(osk->win);
+    GdkDisplay *d = gdk_display_get_default();
     if (osk->pinned)
         return osk->pinned;
+    if (osk->kind != WIN_DOCKED && osk->placed) {
+        GdkMonitor *m = gdk_display_get_monitor_at_point(d, osk->pos_x + osk->width / 2, osk->pos_y + 8);
+        if (m)
+            return m;
+    }
     GdkSeat *seat = gdk_display_get_default_seat(d);
     GdkDevice *ptr = seat ? gdk_seat_get_pointer(seat) : NULL;
-    int px = 0, py = 0;
     if (ptr && !osk->layer) {
+        int px = 0, py = 0;
         gdk_device_get_position(ptr, NULL, &px, &py);
         return gdk_display_get_monitor_at_point(d, px, py);
     }
@@ -735,72 +1046,358 @@ target_monitor(BkOsk *osk)
     return m ? m : gdk_display_get_monitor(d, 0);
 }
 
-static void
-osk_layout(BkOsk *osk)
+static gboolean
+on_save(gpointer data)
 {
+    BkOsk *osk = data;
+    osk->save_id = 0;
+    bk_config_save(&osk->app->cfg, NULL, NULL);
+    return G_SOURCE_REMOVE;
+}
+
+/* Posição e tamanho gravados um pouco depois (não a cada passo do arrasto). */
+static void
+schedule_save(BkOsk *osk)
+{
+    if (osk->save_id)
+        g_source_remove(osk->save_id);
+    osk->save_id = g_timeout_add(700, on_save, osk);
+}
+
+/* Põe a janela no lugar: margens do layer-shell, ou posição no X11. */
+static void
+place_window(BkOsk *osk)
+{
+    GdkDisplay *d = gdk_display_get_default();
     GdkMonitor *mon = target_monitor(osk);
-    GdkRectangle geo = { 0, 0, 1280, 800 };
-    if (mon)
-        gdk_monitor_get_workarea(mon, &geo);
-    double s = osk->app->cfg.scale;
-    /* 15,5 unidades de largura: cabe com folga no monitor */
-    double u = MIN(46 * s, (geo.width - 48) / 15.6);
-    osk->u = round(MAX(24, u));
-    osk->gap = round(MAX(3, osk->u * 0.09));
-    osk->pad = round(osk->u * 0.22);
-    osk->title_h = round(MAX(18, osk->u * 0.5));
-    const BkLayout *l = bk_layout_get(osk->st.layout);
-    bk_geom_build(&osk->geom, bk_panel_rows(l, osk->st.panel), osk->u, osk->gap);
-    /* largura fixa pelo painel principal: trocar de painel não mexe na janela */
-    BkGeom main_geom;
-    bk_geom_build(&main_geom, bk_panel_rows(l, BK_PANEL_MAIN), osk->u, osk->gap);
-    double gw = MAX(main_geom.width, osk->geom.width);
-    if (osk->geom.width < gw) /* centra o painel mais estreito */
-        for (int i = 0; i < osk->geom.n; i++)
-            osk->geom.rect[i].x += round((gw - osk->geom.width) / 2);
-    osk->width = (int)(gw + 2 * osk->pad);
-    osk->height = (int)(osk->title_h + main_geom.height + 2 * osk->pad);
-    if (g_getenv("BIG_KEYBOARD_DEBUG_GEOM")) {
-        /* para os testes: a geometria (relativa à janela), sem nada digitado */
-        g_printerr("geom %d %d\n", osk->width, osk->height);
-        for (int i = 0; i < osk->geom.n; i++)
-            g_printerr("key %d %d %s|%s %.0f %.0f %.0f %.0f\n", i, osk->geom.key[i]->kind,
-                       osk->geom.key[i]->level[0] ? osk->geom.key[i]->level[0] : "",
-                       osk->geom.key[i]->keysym ? osk->geom.key[i]->keysym : "",
-                       osk->pad + osk->geom.rect[i].x, osk->title_h + osk->pad + osk->geom.rect[i].y,
-                       osk->geom.rect[i].w, osk->geom.rect[i].h);
+    GdkRectangle wa = { 0, 0, 1280, 800 }, full = wa;
+    if (mon) {
+        gdk_monitor_get_workarea(mon, &wa);
+        gdk_monitor_get_geometry(mon, &full);
     }
-    gtk_widget_set_size_request(osk->area, osk->width, osk->height);
-    gtk_window_resize(GTK_WINDOW(osk->win), osk->width, osk->height);
+    int w = osk->width, h = osk->height;
+    if (osk->kind != WIN_DOCKED) {
+        if (!osk->placed) {
+            const BkConfig *c = &osk->app->cfg;
+            if (c->float_x >= 0 && c->float_y >= 0) {
+                osk->pos_x = c->float_x;
+                osk->pos_y = c->float_y;
+            } else { /* embaixo, ao centro (com a moldura do gerenciador, se houver) */
+                int deco = osk->kind == WIN_FLOAT_WM ? 34 : 0;
+                osk->pos_x = wa.x + (wa.width - w) / 2;
+                osk->pos_y = wa.y + wa.height - h - deco - 8;
+            }
+            osk->placed = TRUE;
+        }
+        /* nunca some da tela: o título (ou um pedaço da janela) fica ao alcance */
+        GdkMonitor *m = gdk_display_get_monitor_at_point(d, osk->pos_x + w / 2, osk->pos_y + 8);
+        if (!m)
+            m = mon;
+        if (m) {
+            mon = m;
+            gdk_monitor_get_geometry(mon, &full);
+        }
+        osk->pos_x = CLAMP(osk->pos_x, full.x - w + 80, full.x + full.width - 80);
+        osk->pos_y = CLAMP(osk->pos_y, full.y, full.y + full.height - 40);
+    }
 #ifdef BK_HAVE_WAYLAND
     if (osk->layer) {
+        GtkWindow *win = GTK_WINDOW(osk->win);
+        gtk_widget_set_size_request(osk->area, w, h);
         if (mon)
-            gtk_layer_set_monitor(GTK_WINDOW(osk->win), mon);
-        gtk_layer_set_exclusive_zone(GTK_WINDOW(osk->win), osk->app->cfg.reserve ? osk->height : 0);
+            gtk_layer_set_monitor(win, mon);
+        gboolean docked = osk->kind == WIN_DOCKED;
+        gtk_layer_set_anchor(win, GTK_LAYER_SHELL_EDGE_BOTTOM, docked);
+        gtk_layer_set_anchor(win, GTK_LAYER_SHELL_EDGE_RIGHT, docked);
+        gtk_layer_set_anchor(win, GTK_LAYER_SHELL_EDGE_LEFT, TRUE);
+        gtk_layer_set_anchor(win, GTK_LAYER_SHELL_EDGE_TOP, !docked);
+        if (docked) {
+            gtk_layer_set_margin(win, GTK_LAYER_SHELL_EDGE_LEFT, 0);
+            gtk_layer_set_margin(win, GTK_LAYER_SHELL_EDGE_TOP, 0);
+            gtk_layer_set_exclusive_zone(win, osk->app->cfg.reserve ? h : 0);
+        } else {
+            /* coordenadas do monitor inteiro: -1 ignora as zonas dos outros */
+            gtk_layer_set_exclusive_zone(win, -1);
+            gtk_layer_set_margin(win, GTK_LAYER_SHELL_EDGE_LEFT, osk->pos_x - full.x);
+            gtk_layer_set_margin(win, GTK_LAYER_SHELL_EDGE_TOP, osk->pos_y - full.y);
+        }
+        gtk_window_resize(win, w, h);
         return;
     }
 #endif
+    GtkWindow *win = GTK_WINDOW(osk->win);
+    if (osk->kind == WIN_FLOAT_WM) {
+        /* o gerenciador redimensiona; a proporção das teclas fica */
+        GdkGeometry g = { 0 };
+        g.min_width = (int)ceil(osk->width * 22 / MAX(22, osk->u));
+        g.min_height = (int)ceil(osk->height * 22 / MAX(22, osk->u));
+        g.min_aspect = g.max_aspect = (double)w / h;
+        gtk_window_set_geometry_hints(win, NULL, &g, GDK_HINT_MIN_SIZE | GDK_HINT_ASPECT);
+        int cw, ch;
+        gtk_window_get_size(win, &cw, &ch);
+        if (cw != w || ch != h)
+            gtk_window_resize(win, w, h);
+        if (!gtk_widget_get_mapped(osk->win)) /* aberta, quem move é o usuário */
+            gtk_window_move(win, osk->pos_x, osk->pos_y);
+        return;
+    }
+    gtk_widget_set_size_request(osk->area, w, h);
+    gtk_window_resize(win, w, h);
+    if (osk->kind == WIN_FLOAT_OWN) {
+        gtk_window_move(win, osk->pos_x, osk->pos_y);
+        return;
+    }
+    /* encaixado embaixo, na borda do monitor (a área útil já desconta o
+     * espaço que o próprio teclado reservou) */
+    int x = full.x, y = full.y + full.height - h;
+    gtk_window_move(win, x, y);
 #ifdef BK_HAVE_X11
     GdkWindow *gw_ = gtk_widget_get_window(osk->win);
-    int x = geo.x + (geo.width - osk->width) / 2, y = geo.y + geo.height - osk->height;
-    gtk_window_move(GTK_WINDOW(osk->win), x, y);
-    if (gw_ && GDK_IS_X11_WINDOW(gw_)) {
+    if (!osk->override && gw_ && GDK_IS_X11_WINDOW(gw_) && mon) {
         /* reservar espaço: janelas maximizadas sobem (strut na borda de baixo) */
-        GdkRectangle full;
-        gdk_monitor_get_geometry(mon, &full);
         int scr_h = HeightOfScreen(DefaultScreenOfDisplay(GDK_WINDOW_XDISPLAY(gw_)));
         int sc = gdk_window_get_scale_factor(gw_);
         long strut[12] = { 0 };
         if (osk->app->cfg.reserve) {
-            strut[3] = (scr_h - (full.y + full.height) * sc) + osk->height * sc;
+            strut[3] = (scr_h - (full.y + full.height) * sc) + h * sc;
             strut[10] = x * sc;
-            strut[11] = (x + osk->width) * sc - 1;
+            strut[11] = (x + w) * sc - 1;
         }
         gdk_property_change(gw_, gdk_atom_intern_static_string("_NET_WM_STRUT_PARTIAL"),
                             gdk_atom_intern_static_string("CARDINAL"), 32, GDK_PROP_MODE_REPLACE,
                             (guchar *)strut, 12);
     }
 #endif
+}
+
+/* As medidas saem de uma unidade u (a largura de uma tecla comum):
+ *   largura = 2·moldura + 3·margem + teclas + coluna
+ *   altura  = 2·moldura + título + barra de baixo + 2·margem + teclas
+ * Flutuante: a largura é a escolhida (ou a do tamanho das teclas) e o resto
+ * segue a proporção. Encaixado: a largura do monitor, sem passar de 42% da
+ * altura dele; se sobrar largura, as teclas se esticam (como no celular). */
+static void
+osk_layout(BkOsk *osk)
+{
+    BkApp *app = osk->app;
+    GdkMonitor *mon = target_monitor(osk);
+    GdkRectangle wa = { 0, 0, 1280, 800 }, full = wa;
+    if (mon) {
+        gdk_monitor_get_workarea(mon, &wa);
+        gdk_monitor_get_geometry(mon, &full);
+    }
+    if (app->cfg.scale != osk->last_scale) { /* mudou o tamanho das teclas: vale ele */
+        if (osk->last_scale > 0)
+            app->cfg.float_width = 0;
+        osk->last_scale = app->cfg.scale;
+    }
+    const BkLayout *l = bk_layout_get(osk->st.layout);
+    BkGeom m100;
+    bk_geom_build(&m100, bk_panel_rows(l, BK_PANEL_MAIN), 100, 9);
+    double per_w = m100.width / 100.0 + 3 * 0.22 + 1.5, per_h = m100.height / 100.0 + 2 * 0.22;
+    gboolean own = osk->kind == WIN_FLOAT_OWN;
+    double b = own ? 1 : 0, chrome_h = own ? 2 * b + 22 + 8 : 0;
+    int target_w;
+    double u;
+    if (osk->kind == WIN_DOCKED) {
+        target_w = full.width;
+        u = MIN((target_w - 2 * b) / per_w, full.height * 0.42 / per_h);
+        u = MIN(u, 46 * app->cfg.scale * 1.6);
+    } else {
+        int min_w = (int)ceil(22 * per_w + 2 * b);
+        int def_w = (int)round(46 * app->cfg.scale * per_w + 2 * b);
+        target_w = app->cfg.float_width > 0 ? app->cfg.float_width : def_w;
+        target_w = CLAMP(target_w, min_w, MAX(min_w, full.width));
+        u = (target_w - 2 * b) / per_w;
+        u = MIN(u, (full.height * 0.7 - chrome_h) / per_h); /* nunca mais que 70% da altura */
+    }
+    osk->u = floor(MAX(20, u));
+    osk->gap = round(MAX(3, osk->u * 0.09));
+    osk->pad = round(osk->u * 0.22);
+    osk->border = b;
+    osk->title_h = own ? CLAMP(round(osk->u * 0.5), 18, 28) : 0;
+    osk->resize_h = own ? CLAMP(round(osk->u * 0.16), 7, 10) : 0;
+    bk_geom_build(&osk->geom, bk_panel_rows(l, osk->st.panel), osk->u, osk->gap);
+    /* largura fixa pelo painel principal: trocar de painel não mexe na janela */
+    BkGeom main_geom;
+    bk_geom_build(&main_geom, bk_panel_rows(l, BK_PANEL_MAIN), osk->u, osk->gap);
+    double gw = MAX(main_geom.width, osk->geom.width), gh = main_geom.height;
+    if (osk->geom.width < gw) /* centra o painel mais estreito */
+        for (int i = 0; i < osk->geom.n; i++)
+            osk->geom.rect[i].x += round((gw - osk->geom.width) / 2);
+    double colw = round(osk->u * 1.5);
+    if (osk->kind == WIN_DOCKED) {
+        double avail = target_w - 2 * b - 3 * osk->pad - colw;
+        if (avail > gw + 1) { /* estica na horizontal */
+            double sx = avail / gw;
+            for (int i = 0; i < osk->geom.n; i++) {
+                double x0 = round(osk->geom.rect[i].x * sx), x1 = round((osk->geom.rect[i].x + osk->geom.rect[i].w) * sx);
+                osk->geom.rect[i].x = x0;
+                osk->geom.rect[i].w = x1 - x0;
+            }
+            gw = avail;
+        }
+        colw = target_w - 2 * b - 3 * osk->pad - gw;
+    } else {
+        /* o que o arredondamento deixou vai para a coluna */
+        colw = MAX(round(osk->u * 1.2), target_w - 2 * b - 3 * osk->pad - gw);
+    }
+    osk->kx = b + osk->pad;
+    osk->ky = b + osk->title_h + osk->pad;
+    osk->width = (int)round(2 * b + 3 * osk->pad + gw + colw);
+    osk->height = (int)round(2 * b + osk->title_h + osk->resize_h + 2 * osk->pad + gh);
+    /* a coluna: ocultar (só sem moldura), controle na tela, configurações */
+    osk->col_on[COL_HIDE] = osk->kind == WIN_DOCKED;
+    osk->col_on[COL_PAD] = osk->col_on[COL_SETTINGS] = TRUE;
+    int n = 0;
+    for (int i = 0; i < COL_N; i++)
+        n += osk->col_on[i];
+    double bh = floor((gh - (n - 1) * osk->gap) / n), y = osk->ky;
+    for (int i = 0; i < COL_N; i++) {
+        if (!osk->col_on[i])
+            continue;
+        osk->col[i] = (BkRect){ osk->kx + gw + osk->pad, y, colw, bh };
+        y += bh + osk->gap;
+    }
+    if (g_getenv("BIG_KEYBOARD_DEBUG_GEOM")) {
+        /* para os testes: a geometria (relativa à janela), sem nada digitado */
+        g_printerr("geom %d %d kind %d\n", osk->width, osk->height, osk->kind);
+        for (int i = 0; i < COL_N; i++)
+            if (osk->col_on[i])
+                g_printerr("col %d %.0f %.0f %.0f %.0f\n", i, osk->col[i].x, osk->col[i].y, osk->col[i].w,
+                           osk->col[i].h);
+        for (int i = 0; i < osk->geom.n; i++)
+            g_printerr("key %d %d %s|%s %.0f %.0f %.0f %.0f\n", i, osk->geom.key[i]->kind,
+                       osk->geom.key[i]->level[0] ? osk->geom.key[i]->level[0] : "",
+                       osk->geom.key[i]->keysym ? osk->geom.key[i]->keysym : "", osk->kx + osk->geom.rect[i].x,
+                       osk->ky + osk->geom.rect[i].y, osk->geom.rect[i].w, osk->geom.rect[i].h);
+    }
+    place_window(osk);
+    gtk_widget_queue_draw(osk->area);
+}
+
+#ifdef BK_HAVE_X11
+/* Acima da tela cheia (override-redirect): volta ao topo quando o
+ * gerenciador reempilha (o mesmo do controle na tela). */
+static GdkFilterReturn
+on_root_event(GdkXEvent *xev, GdkEvent *ev, gpointer data)
+{
+    (void)ev;
+    BkOsk *osk = data;
+    XEvent *e = xev;
+    if (e->type == PropertyNotify && osk->override && osk->win && gtk_widget_get_visible(osk->win)) {
+        const char *name = gdk_x11_get_xatom_name(e->xproperty.atom);
+        if (!strcmp(name, "_NET_CLIENT_LIST_STACKING") || !strcmp(name, "_NET_ACTIVE_WINDOW"))
+            gdk_window_raise(gtk_widget_get_window(osk->win));
+    }
+    return GDK_FILTER_CONTINUE;
+}
+#endif
+
+/* Moldura do gerenciador: o fechar oculta, e o lugar é lembrado. */
+static gboolean
+on_delete(GtkWidget *w, GdkEvent *ev, gpointer data)
+{
+    (void)w;
+    (void)ev;
+    bk_osk_set_visible(data, FALSE);
+    return TRUE;
+}
+
+static gboolean
+on_configure(GtkWidget *w, GdkEventConfigure *ev, gpointer data)
+{
+    (void)ev;
+    BkOsk *osk = data;
+    if (osk->kind != WIN_FLOAT_WM || !gtk_widget_get_visible(w))
+        return FALSE;
+    int x, y;
+    gtk_window_get_position(GTK_WINDOW(w), &x, &y);
+    if (x != osk->pos_x || y != osk->pos_y) {
+        osk->pos_x = osk->app->cfg.float_x = x;
+        osk->pos_y = osk->app->cfg.float_y = y;
+        osk->placed = TRUE;
+        schedule_save(osk);
+    }
+    return FALSE;
+}
+
+/* O gerenciador mudou o tamanho: as teclas acompanham. */
+static void
+on_size_allocate(GtkWidget *w, GdkRectangle *a, gpointer data)
+{
+    (void)w;
+    BkOsk *osk = data;
+    if (osk->kind != WIN_FLOAT_WM || abs(a->width - osk->width) <= 1)
+        return;
+    osk->app->cfg.float_width = a->width;
+    osk_layout(osk);
+    schedule_save(osk);
+}
+
+static void
+build_window(BkOsk *osk)
+{
+    choose_kind(osk, &osk->kind, &osk->layer, &osk->override, &osk->level);
+    GtkWindow *win;
+    osk->win = gtk_window_new(osk->override ? GTK_WINDOW_POPUP : GTK_WINDOW_TOPLEVEL);
+    win = GTK_WINDOW(osk->win);
+    gtk_window_set_title(win, "Teclado virtual");
+    gtk_window_set_role(win, "big-keyboard");
+    gtk_window_set_icon_name(win, "big-keyboard");
+    gtk_application_add_window(osk->app->gtk, win);
+#ifdef BK_HAVE_WAYLAND
+    if (osk->layer) {
+        gtk_layer_init_for_window(win);
+        gtk_layer_set_namespace(win, "big-keyboard");
+        gtk_layer_set_layer(win, osk->level == 2 ? GTK_LAYER_SHELL_LAYER_OVERLAY : GTK_LAYER_SHELL_LAYER_TOP);
+        gtk_layer_set_keyboard_mode(win, GTK_LAYER_SHELL_KEYBOARD_MODE_NONE);
+    }
+#endif
+    if (!osk->layer && !osk->override) {
+        /* nunca pega o foco: as teclas vão para o aplicativo */
+        gtk_window_set_accept_focus(win, FALSE);
+        gtk_window_set_focus_on_map(win, FALSE);
+        gtk_window_set_skip_taskbar_hint(win, TRUE);
+        gtk_window_set_skip_pager_hint(win, TRUE);
+        gtk_window_stick(win);
+        if (osk->kind == WIN_DOCKED) {
+            gtk_window_set_type_hint(win, GDK_WINDOW_TYPE_HINT_DOCK);
+            gtk_window_set_decorated(win, FALSE);
+            gtk_window_set_keep_above(win, TRUE);
+        } else {
+            /* a moldura do Window Maker: título, fechar, barra de redimensionar */
+            gtk_window_set_type_hint(win, GDK_WINDOW_TYPE_HINT_UTILITY);
+            gtk_window_set_decorated(win, TRUE);
+            gtk_window_set_resizable(win, TRUE);
+            gtk_window_set_keep_above(win, osk->level >= 1);
+            g_signal_connect(osk->win, "delete-event", G_CALLBACK(on_delete), osk);
+            g_signal_connect(osk->win, "configure-event", G_CALLBACK(on_configure), osk);
+        }
+    }
+    osk->area = gtk_drawing_area_new();
+    gtk_widget_add_events(osk->area, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK |
+                                         GDK_TOUCH_MASK);
+    g_signal_connect(osk->area, "draw", G_CALLBACK(on_draw), osk);
+    g_signal_connect(osk->area, "button-press-event", G_CALLBACK(on_button), osk);
+    g_signal_connect(osk->area, "button-release-event", G_CALLBACK(on_button), osk);
+    g_signal_connect(osk->area, "motion-notify-event", G_CALLBACK(on_motion), osk);
+    g_signal_connect(osk->area, "touch-event", G_CALLBACK(on_touch), osk);
+    g_signal_connect(osk->area, "size-allocate", G_CALLBACK(on_size_allocate), osk);
+    gtk_container_add(GTK_CONTAINER(osk->win), osk->area);
+    gtk_widget_set_opacity(osk->win, osk->app->cfg.opacity);
+    /* o leitor de tela anuncia a janela */
+    atk_object_set_name(gtk_widget_get_accessible(osk->area), "Teclado na tela");
+#ifdef BK_HAVE_X11
+    static gboolean filter_added = FALSE;
+    if (osk->override && !filter_added) {
+        GdkWindow *root = gdk_get_default_root_window();
+        gdk_window_set_events(root, gdk_window_get_events(root) | GDK_PROPERTY_CHANGE_MASK);
+        gdk_window_add_filter(root, on_root_event, osk);
+        filter_added = TRUE;
+    }
+#endif
+    gtk_widget_realize(osk->win);
 }
 
 BkOsk *
@@ -812,6 +1409,8 @@ bk_osk_new(BkApp *app)
     osk->cursor = -1;
     osk->point[0] = osk->point[1] = -1;
     osk->flash = -1;
+    osk->col_down = -1;
+    osk->last_scale = app->cfg.scale;
     int layout = 0;
     const BkLayout *l = bk_layout_by_id(app->cfg.layout);
     if (!l && !strcmp(app->cfg.layout, "auto")) {
@@ -828,44 +1427,7 @@ bk_osk_new(BkApp *app)
         if (bk_layout_get(i) == l)
             layout = i;
     bk_state_init(&osk->st, layout);
-    osk->win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(osk->win), "Big WM Virtual Keyboard");
-    gtk_window_set_role(GTK_WINDOW(osk->win), "big-keyboard");
-    gtk_application_add_window(app->gtk, GTK_WINDOW(osk->win));
-#ifdef BK_HAVE_WAYLAND
-    if (GDK_IS_WAYLAND_DISPLAY(gdk_display_get_default()) && gtk_layer_is_supported()) {
-        osk->layer = TRUE;
-        gtk_layer_init_for_window(GTK_WINDOW(osk->win));
-        gtk_layer_set_namespace(GTK_WINDOW(osk->win), "big-keyboard");
-        gtk_layer_set_layer(GTK_WINDOW(osk->win), GTK_LAYER_SHELL_LAYER_TOP);
-        gtk_layer_set_anchor(GTK_WINDOW(osk->win), GTK_LAYER_SHELL_EDGE_BOTTOM, TRUE);
-        gtk_layer_set_keyboard_mode(GTK_WINDOW(osk->win), GTK_LAYER_SHELL_KEYBOARD_MODE_NONE);
-    }
-#endif
-    if (!osk->layer) {
-        /* X11: sem foco, sem moldura, acima das janelas, fora da barra de tarefas */
-        gtk_window_set_type_hint(GTK_WINDOW(osk->win), GDK_WINDOW_TYPE_HINT_DOCK);
-        gtk_window_set_decorated(GTK_WINDOW(osk->win), FALSE);
-        gtk_window_set_accept_focus(GTK_WINDOW(osk->win), FALSE);
-        gtk_window_set_focus_on_map(GTK_WINDOW(osk->win), FALSE);
-        gtk_window_set_keep_above(GTK_WINDOW(osk->win), TRUE);
-        gtk_window_set_skip_taskbar_hint(GTK_WINDOW(osk->win), TRUE);
-        gtk_window_set_skip_pager_hint(GTK_WINDOW(osk->win), TRUE);
-        gtk_window_stick(GTK_WINDOW(osk->win));
-    }
-    osk->area = gtk_drawing_area_new();
-    gtk_widget_add_events(osk->area, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK |
-                                         GDK_TOUCH_MASK);
-    g_signal_connect(osk->area, "draw", G_CALLBACK(on_draw), osk);
-    g_signal_connect(osk->area, "button-press-event", G_CALLBACK(on_button), osk);
-    g_signal_connect(osk->area, "button-release-event", G_CALLBACK(on_button), osk);
-    g_signal_connect(osk->area, "motion-notify-event", G_CALLBACK(on_motion), osk);
-    g_signal_connect(osk->area, "touch-event", G_CALLBACK(on_touch), osk);
-    gtk_container_add(GTK_CONTAINER(osk->win), osk->area);
-    gtk_widget_set_opacity(osk->win, app->cfg.opacity);
-    /* atalhos para a acessibilidade: o leitor de tela anuncia a janela */
-    atk_object_set_name(gtk_widget_get_accessible(osk->area), "Teclado na tela");
-    gtk_widget_realize(osk->win);
+    build_window(osk);
     osk_layout(osk);
     return osk;
 }
@@ -873,6 +1435,7 @@ bk_osk_new(BkApp *app)
 void
 bk_osk_set_visible(BkOsk *osk, gboolean visible)
 {
+    osk->auto_shown = FALSE; /* quem chamou agora decide (o foco marca de novo) */
     if (visible == bk_osk_visible(osk))
         return;
     if (visible) {
@@ -896,14 +1459,27 @@ bk_osk_set_visible(BkOsk *osk, gboolean visible)
 gboolean
 bk_osk_visible(BkOsk *osk)
 {
-    return osk && gtk_widget_get_visible(osk->win);
+    return osk && osk->win && gtk_widget_get_visible(osk->win);
+}
+
+void
+bk_osk_set_auto_shown(BkOsk *osk, gboolean auto_shown)
+{
+    osk->auto_shown = auto_shown;
+}
+
+gboolean
+bk_osk_auto_shown(BkOsk *osk)
+{
+    return osk->auto_shown;
 }
 
 void
 bk_osk_release(BkOsk *osk)
 {
     stop_repeat(osk);
-    osk->switch_armed = FALSE;
+    osk->col_down = -1;
+    osk->drag = DRAG_NONE;
     for (int i = 0; i < MAX_SLOTS; i++)
         osk->slot[i].used = FALSE;
     bk_state_release_all(&osk->st);
@@ -933,7 +1509,34 @@ bk_osk_set_monitor(BkOsk *osk, GdkMonitor *monitor)
 void
 bk_osk_reload(BkOsk *osk)
 {
+    WinKind kind;
+    gboolean layer, ovr;
+    int level;
+    choose_kind(osk, &kind, &layer, &ovr, &level);
+    if (kind != osk->kind || layer != osk->layer || ovr != osk->override || level != osk->level) {
+        /* outro tipo de janela (modo ou "por cima"): refaz, no mesmo estado */
+        gboolean shown = bk_osk_visible(osk);
+        bk_osk_release(osk);
+        if (osk->after_paint_id) { /* um arrasto no meio: o relógio é da janela antiga */
+            GdkFrameClock *fc = gtk_widget_get_frame_clock(osk->win);
+            if (fc)
+                g_signal_handler_disconnect(fc, osk->after_paint_id);
+            osk->after_paint_id = 0;
+        }
+        osk->move_pending = osk->move_dirty = FALSE;
+        gtk_widget_destroy(osk->win);
+        osk->win = osk->area = NULL;
+        build_window(osk);
+        osk_layout(osk);
+        if (shown) {
+            gtk_widget_show_all(osk->win);
+            osk_layout(osk);
+        }
+        bk_app_update_state(osk->app);
+        return;
+    }
     gtk_widget_set_opacity(osk->win, osk->app->cfg.opacity);
+    if (osk->app->cfg.float_x < 0) /* "restaurar o lugar" nas configurações */
+        osk->placed = FALSE;
     osk_layout(osk);
-    gtk_widget_queue_draw(osk->area);
 }
