@@ -12,8 +12,8 @@
 # Para compilar a cópia local do repositório:
 #   BIG_KEYBOARD_SOURCE="git+file://$PWD/.." makepkg
 pkgname=big-keyboard
-pkgver=0.2.0
-pkgrel=4
+pkgver=0.2.2
+pkgrel=1
 pkgdesc="Big WindowMaker: teclado na tela, digitação pelo controle e controle na tela de toque (X11 e Wayland)"
 arch=('x86_64')
 url="https://github.com/big-windowmaker/big-keyboard"

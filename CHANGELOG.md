@@ -1,6 +1,6 @@
 # Changelog
 
-## Não lançado
+## 0.2.2 (2026-11-15)
 
 - **Controle na tela visível na tela de bloqueio** (Wayland): com a sessão
   bloqueada, o controle continuava funcionando pelo Moonlight, mas o
@@ -17,6 +17,9 @@
   com X, "PS" ou a casinha do Home), com um halo na cor de destaque. Os
   layouts já salvos o ganham ao abrir (desligado, para ligar e mover no
   editor, se algo do layout estiver no lugar dele).
+
+## 0.2.1 (2026-11-15)
+
 - **Celular como mouse e teclado**: o touchscreen do Sunshine é lido com o
   teclado aberto também (antes, só com o controle na tela). Cada dedo vai
   para o que está embaixo dele: as teclas (a barra de título move a
@@ -51,6 +54,13 @@
   ladrilho para outro lugar. No wlmaker não havia como arrastá-lo: ele só
   move um dockapp X11 pela borda do ladrilho (ou com o modificador de mover
   janelas), e a janela de 64×64 a cobria inteira.
+- **Teclado flutuante acima do Dock com Abas**: sem posição gravada, o
+  lugar padrão é calculado de novo a cada vez que o teclado aparece. Antes,
+  ficava preso à área útil do início da sessão, quando o Dock com Abas
+  ainda não tinha reservado a borda de baixo, e a fileira da barra de
+  espaço ficava atrás dele (X11). No Wayland, o GTK 3 dá o monitor inteiro
+  como área útil; a altura que sobra depois dos painéis layer-shell vem
+  agora do compositor (uma superfície sem buffer, que nunca aparece).
 
 ## 0.2.0 (2026-11-15)
 

@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/big-windowmaker/big-keyboard/actions/workflows/ci.yml"><img src="https://github.com/big-windowmaker/big-keyboard/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/vers%C3%A3o-0.2.0-informational" alt="Versão 0.2.0">
+  <img src="https://img.shields.io/badge/vers%C3%A3o-0.2.1-informational" alt="Versão 0.2.1">
   <img src="https://img.shields.io/badge/licen%C3%A7a-GPL--2.0--or--later-blue" alt="Licença GPL-2.0-or-later">
   <img src="https://img.shields.io/badge/sess%C3%B5es-X11%20%7C%20Wayland-555" alt="X11 e Wayland">
 </p>
@@ -400,7 +400,7 @@ O pacote `big-keyboard` do Arch/Manjaro está em [`pkgbuild/PKGBUILD`](pkgbuild/
 testa, empacota e roda o `namcap` a cada push (o artefato do CI é feito do commit, com o dockapp atual).
 
 > [!NOTE]
-> Sem `BIG_KEYBOARD_SOURCE`, o PKGBUILD compila a tag da versão (`v0.2.0`). Para empacotar o que está
+> Sem `BIG_KEYBOARD_SOURCE`, o PKGBUILD compila a tag da versão (`v0.2.1`). Para empacotar o que está
 > no `main` (ou a sua cópia local), aponte para o commit:
 
 ```sh
@@ -458,6 +458,11 @@ Os laboratórios de X11 e Wayland e as medições estão em [docs/qa-2026-11-14.
 - Ainda não existe teclado e mouse como controle para jogos **locais**; para o xCloud, o Better xCloud faz
   isso no navegador.
 - A interface ainda não usa o gettext (os textos estão em português).
+- Toque remoto no modo `shared`: enquanto um celular estiver conectado, uma tela de toque física não opera
+  o teclado nem o controle na tela (o compositor entregaria o mesmo dedo do celular de novo, e o programa
+  ignora os toques que vêm por ele). No `exclusive`, o padrão, isso não acontece.
+- Sem `--output`, o toque do celular vale para o monitor principal: com vários monitores, o Big Remote Play
+  (ou `--output`) precisa apontar o transmitido.
 - Sem uma fonte de emoji (o pacote depende do `noto-fonts-emoji`), os emojis do painel ☺ aparecem como
   quadrados com o código.
 - Não verificados: tela de toque real, HiDPI real, vários monitores, KDE Plasma, XFCE e Cinnamon; o mouse

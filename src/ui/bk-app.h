@@ -90,6 +90,9 @@ gboolean bk_overlay_remote_claim(BkOverlay *ov, double nx, double ny, gboolean u
 void bk_overlay_remote_touch(BkOverlay *ov, const void *id, BkCtlPhase phase, double nx, double ny);
 void bk_overlay_output_changed(BkOverlay *ov);
 GdkMonitor *bk_monitor_by_name(GdkDisplay *dpy, const char *name);
+/* Altura útil do monitor no Wayland (sem as bordas que painéis layer-shell
+ * reservam, como o Dock com Abas); `full` quando não dá para saber. */
+int bk_monitor_usable_height(GdkDisplay *dpy, GdkMonitor *mon, int full);
 
 /* O controle na tela releu o layout do disco (configurações mudaram a aparência). */
 void bk_overlay_reload(BkOverlay *ov);
