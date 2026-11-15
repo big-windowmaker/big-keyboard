@@ -1,6 +1,6 @@
 # Changelog
 
-## Não lançado
+## 0.2.0 (2026-11-15)
 
 - **Janela do teclado**: flutuante (padrão), com a moldura do Window Maker
   (título, fechar, barra de redimensionar), vai para qualquer lugar e muda
