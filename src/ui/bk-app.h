@@ -30,6 +30,8 @@ typedef struct {
     GtkWidget *settings;
     BkVpad *vpad; /* existe com o controle na tela, ou trocado pelo teclado */
     gboolean dark;
+    struct BkFocus *focus; /* campo de texto em foco (AT-SPI), com a opção ligada */
+    guint focus_hide_id;
 } BkApp;
 
 BkApp *bk_app_get(void);
@@ -55,6 +57,9 @@ void bk_osk_reload(BkOsk *osk);
 /* O monitor da próxima abertura (a troca pelo controle: o teclado abre onde
  * o controle estava, o monitor que o celular alcança); NULL = o de sempre. */
 void bk_osk_set_monitor(BkOsk *osk, GdkMonitor *monitor);
+/* Aberto sozinho por um campo de texto (AT-SPI): fecha sozinho também. */
+void bk_osk_set_auto_shown(BkOsk *osk, gboolean auto_shown);
+gboolean bk_osk_auto_shown(BkOsk *osk);
 
 /* ---- controle na tela (toque) --------------------------------------------- */
 BkOverlay *bk_overlay_new(BkApp *app);

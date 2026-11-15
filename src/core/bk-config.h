@@ -26,6 +26,12 @@ typedef struct {
     int repeat_delay;     /* ms, 150..2000 */
     int repeat_rate;      /* ms entre repetições, 20..500 */
     gboolean sound;       /* clique sonoro (desligado) */
+    char window_mode[12]; /* floating (janela com moldura, move e redimensiona), docked (embaixo, largura inteira) */
+    char stacking[12];    /* normal, above (por cima das janelas), fullscreen (por cima até de tela cheia) */
+    gboolean auto_show;   /* abrir ao focar um campo de texto (AT-SPI), como no celular */
+    gboolean auto_hide;   /* fechar ao sair do campo, se abriu sozinho */
+    int float_x, float_y; /* posição da janela flutuante (coordenadas da tela); -1: embaixo, ao centro */
+    int float_width;      /* largura da janela flutuante (px); 0: pelo tamanho das teclas */
     /* [Gamepad] */
     gboolean pad;         /* navegar com o controle físico */
     gboolean pad_combo;   /* Select+Start abre/fecha o teclado de qualquer lugar */

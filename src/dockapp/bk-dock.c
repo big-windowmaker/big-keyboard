@@ -290,6 +290,40 @@ draw_dpad(cairo_t *cr, const BkRect *b, gboolean dark, gboolean connected)
     cairo_fill(cr);
 }
 
+/* LED embaixo do botão, como os do Window Maker: verde com a janela aberta,
+ * cinza fechada (apagado: mais fraco quando o botão está desabilitado). */
+static void
+draw_led(cairo_t *cr, const BkRect *led, gboolean on, gboolean dark, gboolean disabled)
+{
+    /* contorno afundado: escuro em cima e à esquerda, claro embaixo e à direita */
+    fill_rect(cr, led->x - 1, led->y - 1, led->w + 2, led->h + 2, dark ? 0.04 : 0.20);
+    fill_rect(cr, led->x, led->y + led->h, led->w + 1, 1, dark ? 0.45 : 1.0);
+    fill_rect(cr, led->x + led->w, led->y, 1, led->h, dark ? 0.45 : 1.0);
+    if (on)
+        cairo_set_source_rgb(cr, 0.19, 0.86, 0.19);
+    else
+        gray(cr, disabled ? (dark ? 0.24 : 0.58) : (dark ? 0.36 : 0.47));
+    cairo_rectangle(cr, led->x, led->y, led->w, led->h);
+    cairo_fill(cr);
+    if (on) { /* brilho do LED aceso */
+        cairo_set_source_rgb(cr, 0.70, 1.0, 0.70);
+        cairo_rectangle(cr, led->x, led->y, led->w, 1);
+        cairo_fill(cr);
+    }
+}
+
+void
+bk_dock_led_rect(const BkDockLayout *l, int i, BkRect *led)
+{
+    const BkRect *b = &l->btn[i];
+    double s = MIN(l->w, l->h) / 64.0;
+    double lw = round(b->w * 0.46), lh = MAX(3, round(3 * s));
+    led->x = b->x + floor((b->w - lw) / 2);
+    led->y = b->y + b->h - lh - MAX(3, round(4 * s));
+    led->w = lw;
+    led->h = lh;
+}
+
 static double
 face_of(const BkDockState *s, int i)
 {
@@ -323,16 +357,21 @@ bk_dock_draw(cairo_t *cr, const BkDockLayout *l, const BkDockState *s)
         cairo_clip(cr);
         if (s->pressed == i) /* a tecla afunda com o aperto */
             cairo_translate(cr, 1, 1);
+        /* o símbolo sobe para dar lugar ao LED */
+        BkRect led;
+        bk_dock_led_rect(l, i, &led);
+        BkRect sym = { b->x, b->y, b->w, led.y - 1 - b->y };
         if (s->disabled[i] && !s->active[i])
             cairo_push_group(cr);
         if (i == BK_HALF_KBD)
-            draw_enter(cr, b, s->dark);
+            draw_enter(cr, &sym, s->dark);
         else
-            draw_dpad(cr, b, s->dark, s->pad_connected);
+            draw_dpad(cr, &sym, s->dark, s->pad_connected);
         if (s->disabled[i] && !s->active[i]) {
             cairo_pop_group_to_source(cr);
             cairo_paint_with_alpha(cr, 0.35);
         }
+        draw_led(cr, &led, s->active[i], s->dark, s->disabled[i] && !s->active[i]);
         cairo_restore(cr);
     }
     cairo_restore(cr);

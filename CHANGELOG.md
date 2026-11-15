@@ -2,6 +2,25 @@
 
 ## Não lançado
 
+- **Janela do teclado**: flutuante (padrão), com a moldura do Window Maker
+  (título, fechar, barra de redimensionar), vai para qualquer lugar e muda
+  de tamanho com as teclas acompanhando, e lembra o lugar e o tamanho; ou
+  encaixado embaixo, na largura inteira, como no celular. No Wayland a
+  moldura é desenhada pelo teclado (uma janela comum roubaria o foco).
+- **Coluna à direita das teclas**: botões grandes, um embaixo do outro,
+  para o controle na tela, as configurações e (encaixado) ocultar. Saem os
+  botões pequenos da barra de título.
+- **Abrir ao tocar num campo de texto** (AT-SPI), e fechar ao sair dele se
+  abriu sozinho. Sem o barramento de acessibilidade, a opção só não age.
+- **Ficar por cima**: como as outras janelas, por cima das janelas ou por
+  cima de tudo, até de jogos, vídeos e apresentações em tela cheia.
+- **Controle na tela acima da tela cheia no X11**: janela override-redirect
+  que volta ao topo quando o gerenciador reempilha (antes, DOCK atrás da
+  tela cheia). No wlmaker, pede o pacote 38.
+- **Dockapp**: LED embaixo de cada botão (verde aberto, cinza fechado); o
+  dockapp de dois botões e o toque remoto agora estão no mesmo ramo.
+- Arrastar o teclado no wlmaker pede o pacote 39 (o ponteiro se perdia ao
+  sair da superfície).
 - **Trocar entre teclado e controle na tela**: a barra de título do teclado
   ganhou um botão com um controle, e o controle na tela, um botão redondo
   com um teclado (no alto, ao centro, fora do layout e sem cobrir nenhum
