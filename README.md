@@ -31,6 +31,7 @@
 - [O dockapp de dois botões](#o-dockapp-de-dois-botões)
 - [Teclado na tela](#teclado-na-tela)
 - [Controle na tela](#controle-na-tela)
+- [Jogar pelo celular: teclas, controle e mouse](#jogar-pelo-celular-teclas-controle-e-mouse)
 - [Digitação pelo controle físico](#digitação-pelo-controle-físico)
 - [Configurações](#configurações)
 - [X11 e Wayland](#x11-e-wayland)
@@ -46,8 +47,8 @@
 |---|---|
 | **Teclado na tela** | ABNT2, US e US internacional, painel **Fn** e painel **☺** (símbolos e emojis); janela flutuante com a moldura do Window Maker (mover e redimensionar) ou encaixado embaixo, como no celular; pode abrir sozinho ao tocar num campo de texto; nunca rouba o foco do aplicativo |
 | **Digitação pelo controle** | Xbox, DualShock/DualSense, Steam Deck e genéricos USB/Bluetooth: cursor de tecla em tecla e modo apontar dos analógicos, como no teclado do SteamOS |
-| **Controle na tela** | botões e analógicos semitransparentes sobre o jogo, também em tela cheia, multitoque, com editor visual; os jogos veem um gamepad comum (uinput) |
-| **Toque remoto** | os dedos do celular (Moonlight + Sunshine) apertam o controle na tela, usado pelo Big Remote Play |
+| **Controle na tela** | botões e analógicos semitransparentes sobre o jogo, também em tela cheia, multitoque, com editor visual; cinco estilos (clássico, moderno, retrô, neon, minimalista), botões de Xbox, PlayStation ou Nintendo e sete modelos prontos; os jogos veem um gamepad comum (uinput) |
+| **Toque remoto** | os dedos do celular (Moonlight + Sunshine) apertam o controle na tela e as teclas, e fora deles viram mouse (touchpad, clique esquerdo e direito, rolagem); usado pelo Big Remote Play |
 | **Dockapp** | dois botões num ladrilho do Dock, cada um com um LED: Enter ↵ para o teclado, direcional para o controle na tela |
 | **Xbox Cloud Gaming** | configura e orienta o uso do [Better xCloud](https://better-xcloud.github.io/) no navegador |
 | **Tela de bloqueio** | o teclado com controle já vem no bloqueador do big-wm (gtklock no Wayland, xsecurelock no X11); a senha nunca passa por este programa |
@@ -62,7 +63,8 @@
 | Mover e redimensionar o teclado | arraste o título; a barra de baixo (ou a borda da moldura) muda o tamanho |
 | Soltar tudo (emergência) | menu do dockapp, ou `big-keyboard --release` |
 | Controle no monitor transmitido | `big-keyboard --output=DP-1` (vazio = principal) |
-| Toque do celular pelo Moonlight | `big-keyboard --remote-touch=exclusive` (padrão), `shared` ou `off` |
+| Toque do celular pelo Moonlight | **Configurações > Celular**, ou `big-keyboard --remote-touch=exclusive` (padrão), `shared` ou `off` |
+| Estilo e modelo do controle na tela | **Configurações > Controle na tela** (prévia ao vivo) |
 
 Fica residente desde o login (`big-keyboard --daemon`, autostart só no Window Maker e no wlmaker), parado
 em descritores, sem gastar CPU: abrir o teclado leva cerca de 33 ms
@@ -176,27 +178,92 @@ controle fecha, então nada fica preso. Tem multitoque independente por dedo.
 
 Layouts do controle podem ser duplicados, importados e exportados em **Configurações > Controle na tela**.
 
+### Estilos e modelos
+
+<p align="center">
+  <img src="docs/screenshots/controle-estilos.png" width="100%"
+       alt="Oito controles na tela: padrão clássico, Xbox moderno, PlayStation, Nintendo Switch, retrô 16 bits, arcade neon, corrida com analógico flutuante e mínimo">
+  <br><sub>Os sete modelos e o padrão, com o analógico esquerdo (ou o direcional) apertado: o pino segue o
+  dedo e o direcional acende o lado apertado. Capturas no Xvfb, sem compositor (por isso o fundo preto).</sub>
+</p>
+
+A aparência é de cada layout e vai junto no arquivo dele: um layout "PlayStation" já abre com ✕ ○ □ △.
+
+| Opção | Escolhas |
+|---|---|
+| Estilo | **Clássico** (relevo cinza OPENSTEP, o de sempre), **Moderno** (vidro escuro), **Retrô** (16 bits: cores fortes, contorno grosso e sombra), **Neon** (contorno luminoso), **Minimalista** (só o contorno) |
+| Botões | **Xbox** (A B X Y, LB RB, LT RT), **PlayStation** (✕ ○ □ △, L1 R1, L2 R2), **Nintendo** (B A Y X, L R, ZL ZR, − + e Home), com as cores de cada um. Só os nomes e as cores mudam: o botão de baixo continua sendo o botão de baixo para o jogo |
+| Cor de destaque | azul, vermelho, verde, roxo, laranja ou cinza (toques e contornos) |
+| Analógico | **fixo**, ou **flutuante**: o centro vai aonde o dedo encosta |
+| Direcional | **cruz**, **quatro setas** ou **disco** |
+| Animação ao tocar | nenhuma, afundar, brilho, onda (um anel que se abre) ou encolher |
+
+| Modelo | Como é |
+|---|---|
+| Xbox | analógico esquerdo em cima, direcional embaixo; moderno, A B X Y coloridos |
+| PlayStation | direcional em cima, analógicos lado a lado embaixo; quatro setas, onda |
+| Nintendo Switch | como o Pro Controller: B A Y X, L R ZL ZR, − + e Home; direcional em disco |
+| Retrô 16 bits | direcional grande, quatro botões, L e R, sem analógicos |
+| Arcade | alavanca e seis botões em duas fileiras, neon |
+| Corrida | volante no analógico flutuante, acelerador e freio grandes |
+| Mínimo | um analógico flutuante e dois botões, só o contorno |
+
+Criar a partir de um modelo faz um layout novo (nunca sobrescreve um que já exista); depois dá para ajustar
+no editor. Layouts antigos, sem aparência gravada, continuam com o visual clássico.
+
+<p align="center">
+  <img src="docs/screenshots/configuracoes-controle-na-tela.png" width="85%"
+       alt="Configurações, seção Controle na tela: layout, modelo, prévia e opções de aparência">
+  <br><sub><b>Controle na tela</b>: o layout, um modelo para criar outro, a prévia com o mesmo desenho do
+  controle e as opções de aparência do layout atual.</sub>
+</p>
+
 O controle na tela fica acima de jogos, vídeos e apresentações em tela cheia: no Wayland pela camada
 OVERLAY do layer-shell (no wlmaker, a partir do pacote 38), no X11 como janela fora das camadas do
 gerenciador, que volta ao topo quando ele reempilha as janelas.
 
-### Jogar pelo celular (Moonlight + Sunshine)
+## Jogar pelo celular: teclas, controle e mouse
 
-Com o controle na tela aberto, os dedos do celular apertam os botões dele
-de verdade, vários ao mesmo tempo. Precisa de um Moonlight que envie toques
-nativos (o Moonlight oficial para Android ainda não envia; veja o Big Remote
-Play, *Compartilhar → Preferências → Controles por toque*) e de um Sunshine
-com o libvirtualhid (2026 ou mais novo). O Sunshine cria o touchscreen
-virtual `libvirtualhid Touchscreen`; este programa o lê direto do kernel
-(sem depender do compositor), e no modo `exclusive` o agarra para que nada
-vire clique de mouse. O controle precisa estar no monitor transmitido
-(`--output`), porque o toque chega normalizado à imagem dele.
+Com um Moonlight que envia toques nativos (o oficial para Android ainda não envia; veja o Big Remote Play,
+*Compartilhar → Preferências → Controles por toque*) e um Sunshine com o libvirtualhid (2026.1113 ou mais
+novo), o Sunshine cria o touchscreen virtual `libvirtualhid Touchscreen`. Enquanto o teclado ou o controle na
+tela estiver aberto, este programa o lê direto do kernel (sem depender do compositor; o wlmaker não entrega
+toques) e cada dedo vai para o que estiver embaixo dele, vários ao mesmo tempo:
 
-Para digitar no meio do jogo, toque no botão com o teclado (no alto, ao
-centro): o controle dá lugar ao teclado no mesmo monitor, e o botão
-**Controle**, à direita das teclas, traz o controle de volta. A troca
-acontece ao tirar o dedo, e o jogo continua vendo o mesmo gamepad: nada
-desconecta no meio da partida.
+| Embaixo do dedo | O que acontece |
+|---|---|
+| Um botão, analógico ou gatilho do controle na tela | aperta no gamepad virtual, como na tela local |
+| Uma tecla | digita; a barra de título move a janela e a de baixo muda a largura |
+| Nada (com o teclado aberto) | vira **mouse** (abaixo) |
+| Nada (só o controle aberto) | nada: no meio do jogo, um clique perdido atrapalha |
+
+Sobre a janela do teclado, as teclas ganham dos controles que ficam embaixo dela.
+
+**Mouse pelo toque** (Configurações > Celular, *Automático*):
+
+| Aberto | Modo | Gestos |
+|---|---|---|
+| Só o teclado | **touchpad** | arrastar um dedo move o ponteiro; um toque rápido é o clique esquerdo onde o ponteiro estiver; parar o dedo meio segundo e então movê-lo arrasta com o botão apertado |
+| Teclado e controle juntos | **toque direto** | o ponteiro vai até o dedo e clica com o botão esquerdo ali; arrastar arrasta |
+| Nos dois | | com um dedo na tela, um toque com outro dedo é o **clique direito**; dois dedos juntos **rolam** |
+
+Também dá para fixar *Sempre touchpad*, *Sempre toque direto* ou desligar, e ajustar a velocidade do touchpad.
+O mouse só age no modo `exclusive` (padrão): no `shared` o compositor também receberia os dedos, e o clique
+sairia dobrado. O ponteiro vem do `zwlr_virtual_pointer_v1` (Wayland, preso ao monitor transmitido) ou do
+XTest (X11).
+
+<p align="center">
+  <img src="docs/screenshots/configuracoes-celular.png" width="85%"
+       alt="Configurações, seção Celular: estado agora, toque do celular, mouse pelo toque e velocidade do touchpad">
+  <br><sub><b>Celular</b>: o estado em palavras (atualizado na hora), o modo do toque, o modo do mouse e a
+  velocidade do touchpad.</sub>
+</p>
+
+O toque chega normalizado à imagem do monitor transmitido, então o controle fica nele (`--output`, que o Big
+Remote Play escolhe), e o teclado também abre nele enquanto um celular estiver conectado. Para digitar no
+meio do jogo, toque no botão redondo com o teclado (no alto, ao centro do controle); o botão **Controle**, à
+direita das teclas, traz o controle de volta. A troca acontece ao tirar o dedo, e o jogo continua vendo o
+mesmo gamepad: nada desconecta no meio da partida.
 
 ## Digitação pelo controle físico
 
@@ -236,7 +303,7 @@ dispositivos que o udev marca como joystick e recusa os que têm teclas de letra
 
 Abra com duplo clique no dockapp, pelo botão **Configurar** do teclado ou com `big-keyboard --settings
 [--page=SEÇÃO]`. As seções são Geral (`general`), Teclado (`keyboard`), Controle físico (`gamepad`),
-Controle na tela (`overlay`), Jogos (`games`), Xbox Cloud Gaming (`xcloud`), Tela de bloqueio (`lock`) e
+Controle na tela (`overlay`), Celular (`remote`), Jogos (`games`), Xbox Cloud Gaming (`xcloud`), Tela de bloqueio (`lock`) e
 Avançado (`advanced`).
 
 **Modo de exibição** (Geral):
@@ -346,7 +413,7 @@ espelho `pkgbuild/big-keyboard/` (e `pkgbuild/src/`); senão o makepkg para com 
 
 | Tipo | Pacotes |
 |---|---|
-| Depende de | glib2, gtk3, at-spi2-core, cairo, pango, libx11, libxtst, libxkbcommon, wayland, gtk-layer-shell, systemd-libs (libudev), hicolor-icon-theme |
+| Depende de | glib2, gtk3, at-spi2-core, cairo, pango, libx11, libxtst, libxkbcommon, wayland, gtk-layer-shell, systemd-libs (libudev), hicolor-icon-theme, noto-fonts-emoji (os emojis do painel ☺) |
 | Opcionais | steam-devices ou game-devices-udev (`/dev/uinput`), big-wm-lockscreen, big-wm-session (menu Dockapps e `big-wm-lock-settings`), xorg-xwayland (o dockapp no wlmaker), picom (transparência no X11), sunshine 2026.1113 ou mais novo (toque remoto do celular) |
 | Para compilar | git, meson, wayland-protocols |
 
@@ -361,14 +428,15 @@ meson test -C build --print-errorlogs
 Opções do meson: `-Dx11=` (XTest e o dockapp) e `-Dwayland=` (virtual-keyboard e layer-shell), ambas
 `auto`.
 
-`meson test` roda 7 conjuntos sem precisar de X11 nem Wayland:
+`meson test` roda 8 conjuntos sem precisar de X11 nem Wayland:
 
 | Conjunto | O que testa |
 |---|---|
 | `keys` | layouts, modificadores, teclas mortas e painéis |
 | `geom` | geometria e toque |
 | `config` | configuração, inclusive a janela do teclado (modo, por cima, lugar e tamanho) |
-| `controls` | o controle na tela |
+| `controls` | o controle na tela: toques, analógico flutuante, aparência gravada, rótulos e cores de cada família, os sete modelos (dentro da tela, sem sobreposição) |
+| `touchmouse` | o mouse pelo toque: touchpad, toque direto, clique direito com dois dedos, rolagem, arrasto |
 | `vpad` | o gamepad uinput; é pulado sem `/dev/uinput`, como num chroot de build |
 | `dock` | o dockapp: áreas de clique, clique × duplo clique e desenho por pixels |
 | `rtouch` | o toque remoto (touchscreen do Sunshine) |
@@ -390,7 +458,11 @@ Os laboratórios de X11 e Wayland e as medições estão em [docs/qa-2026-11-14.
 - Ainda não existe teclado e mouse como controle para jogos **locais**; para o xCloud, o Better xCloud faz
   isso no navegador.
 - A interface ainda não usa o gettext (os textos estão em português).
-- Não verificados: tela de toque real, HiDPI real, vários monitores, KDE Plasma, XFCE e Cinnamon.
+- Sem uma fonte de emoji (o pacote depende do `noto-fonts-emoji`), os emojis do painel ☺ aparecem como
+  quadrados com o código.
+- Não verificados: tela de toque real, HiDPI real, vários monitores, KDE Plasma, XFCE e Cinnamon; o mouse
+  pelo toque com um celular de verdade no wlmaker (os gestos foram testados com um touchscreen simulado no
+  X11).
 
 ## Documentação, licença e créditos
 

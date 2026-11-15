@@ -25,10 +25,13 @@
 | `src/core/bk-config.c` | preferências versionadas, validadas, gravação atômica |
 | `src/input/big-wm-gamepad.c` | controles físicos (udev, evdev, conexão a quente, repetição, navegação espacial) |
 | `src/input/bk-rtouch.c` | toque remoto: o touchscreen virtual do Sunshine (protocolo B, SYN_DROPPED, udev) |
-| `src/input/bk-inject.c` | entrega das teclas: virtual-keyboard (Wayland) e XTest (X11) |
+| `src/input/bk-touchmouse.c` | mouse pelo toque: touchpad e toque direto, cliques, clique direito com dois dedos, rolagem (puro) |
+| `src/input/bk-inject.c` | entrega das teclas (virtual-keyboard no Wayland, XTest no X11) e do ponteiro (`zwlr_virtual_pointer_v1` preso a um monitor, ou XTest) |
 | `src/gamepad/bk-vpad.c` | controle virtual uinput |
-| `src/gamepad/bk-controls.c` | controle na tela: layout, toques, gravação |
+| `src/gamepad/bk-controls.c` | controle na tela: layout, toques, gravação, aparência (estilo, família de botões, analógico flutuante), modelos |
 | `src/ui/` | aplicativo (ações D-Bus), teclado, sobreposição/editor, configurações |
+| `src/ui/bk-remote.c` | toque remoto: abre o touchscreen do Sunshine com o teclado ou o controle aberto e entrega cada dedo ao controle, ao teclado ou ao mouse |
+| `src/ui/bk-ctlpaint.c` | desenho do controle na tela nos cinco estilos (o mesmo para a prévia das configurações) |
 | `src/ui/bk-focus.c` | campo de texto em foco pela acessibilidade (AT-SPI): abrir o teclado como no celular |
 | `src/dockapp/` | dockapp X11 (Window Maker; wlmaker pelo XWayland) |
 
@@ -62,13 +65,28 @@ celular (dedos) → Moonlight (LiSendTouchEvent) → Sunshine (libvirtualhid)
   → touchscreen uinput "libvirtualhid Touchscreen" (0..19200 × 0..10800,
     normalizado à imagem do monitor transmitido)
   → bk-rtouch (leitura direta, EVIOCGRAB no modo exclusivo)
-  → bk_ctl_touch (um toque por slot) → bk-vpad (gamepad uinput) → jogo
+  → bk-remote: o destino de cada dedo, escolhido ao encostar
+       ├ controle na tela → bk_ctl_touch → bk-vpad (gamepad uinput) → jogo
+       ├ teclado          → a tecla sob o dedo → bk-inject (teclas)
+       └ mouse            → bk-touchmouse → bk-inject (ponteiro)
 ```
 
 - **Sem o compositor**: o wlmaker não entrega toques (o dispositivo de
   toque é ignorado); no X11/KDE o toque viraria clique fora dos controles.
-  Ler o nó direto funciona igual em todos. Só enquanto o controle está
-  visível; fechado, o dispositivo volta ao desktop.
+  Ler o nó direto funciona igual em todos. Só enquanto o teclado ou o
+  controle está visível; com os dois fechados, o dispositivo volta ao
+  desktop.
+- **Destino de cada dedo**: escolhido ao encostar e fixo até sair: o
+  botão de troca e o editor do controle, as teclas (que ganham dos
+  controles sob a janela do teclado), os controles, e, com o teclado
+  aberto e o dispositivo agarrado, o mouse (touchpad com o teclado
+  sozinho; toque direto com teclado e controle). Só com o controle, tocar
+  fora dele não faz nada.
+- **Fora da leitura**: abrir ou fechar o dispositivo nunca acontece dentro
+  da leitura dele (um dedo pode fechar o teclado): a visibilidade pede
+  `bk_remote_sync`, que age no laço principal.
+- **Monitor**: com um celular conectado, o teclado abre no monitor
+  transmitido, embaixo, ao centro, se estava em outro.
 - **Coordenadas**: o Moonlight normaliza o toque à área do vídeo (sem as
   barras pretas do celular); o Sunshine põe isso nos eixos do dispositivo;
   aqui `px = x / 19200 × largura do monitor`. Vale para qualquer proporção,
