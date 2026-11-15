@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
  *
- * big-keyboard-dockapp: o dockapp do Big WM Virtual Keyboard (tile 64×64),
+ * big-keyboard-dockapp: o dockapp do Big WM Virtual Keyboard (58×58 num
+ * ladrilho de 64×64),
  * dois botões de verdade (desenho, áreas e cliques em bk-dock.c):
  *
  *    ┌─────────┬┬─────────┐
@@ -12,6 +13,12 @@
  *   clique: alterna a metade · duplo clique (na mesma metade):
  *   configurações, sem alternar nada · botão direito: menu · arrastar: o
  *   Window Maker move o tile · parar o ponteiro: dica da metade.
+ *
+ *   Em volta, a borda do ladrilho (3 px): segurar ali e arrastar move o
+ *   ladrilho, no Window Maker e no wlmaker. O wlmaker só move um dockapp X11
+ *   pela borda (o que fica fora da janela dele) ou com o modificador de mover
+ *   janelas, e mantém o tamanho que o dockapp pede: com 64×64 não sobrava
+ *   borda nenhuma.
  *
  * Um dockapp X11 (líder retirado com janela de ícone): o Window Maker o
  * acopla, e o wlmaker o acopla pelo XWayland, como os outros dockapps da
@@ -31,7 +38,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-#define SIZE 64
+#define SIZE 58 /* como wmcpuload e wmmemload: a borda do ladrilho fica livre */
 #define NAME "big-keyboard-dockapp"
 #define APP_ID "io.github.big_windowmaker.BigKeyboard"
 #define APP_PATH "/io/github/big_windowmaker/BigKeyboard"
