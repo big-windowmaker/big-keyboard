@@ -1520,6 +1520,10 @@ bk_osk_set_visible(BkOsk *osk, gboolean visible)
     if (visible == bk_osk_visible(osk))
         return;
     if (visible) {
+        /* sem lugar salvo, o padrão vem da área útil de agora: o daemon sobe
+         * com a sessão, antes de o Dock com Abas reservar a borda de baixo */
+        if (osk->app->cfg.float_x < 0)
+            osk->placed = FALSE;
         osk_follow(osk);
         osk_layout(osk); /* monitor e escala do momento */
         gtk_widget_show_all(osk->win);
