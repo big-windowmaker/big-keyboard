@@ -219,13 +219,24 @@ bk_app_config_changed(BkApp *app)
 
 /* ---- ações ---------------------------------------------------------------- */
 
+/* Modo de exibição exclusivo: abrir o teclado oculta o controle na tela e
+ * vice-versa. No independente (o padrão), os dois convivem. */
+static gboolean
+exclusive(BkApp *app)
+{
+    return !strcmp(app->cfg.display_mode, "exclusive");
+}
+
 static void
 act_toggle(GSimpleAction *a, GVariant *p, gpointer data)
 {
     (void)a;
     (void)p;
     BkApp *app = data;
-    bk_osk_set_visible(app->osk, !bk_osk_visible(app->osk));
+    gboolean show = !bk_osk_visible(app->osk);
+    if (show && exclusive(app))
+        bk_overlay_set_visible(app->overlay, FALSE, FALSE);
+    bk_osk_set_visible(app->osk, show);
 }
 
 static void
@@ -258,7 +269,10 @@ act_gamepad(GSimpleAction *a, GVariant *p, gpointer data)
     (void)a;
     (void)p;
     BkApp *app = data;
-    bk_overlay_set_visible(app->overlay, !bk_overlay_visible(app->overlay), FALSE);
+    gboolean show = !bk_overlay_visible(app->overlay);
+    if (show && exclusive(app))
+        bk_osk_set_visible(app->osk, FALSE);
+    bk_overlay_set_visible(app->overlay, show, FALSE);
 }
 
 static void

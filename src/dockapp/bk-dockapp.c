@@ -1,30 +1,33 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
  *
- * big-keyboard-dockapp: o dockapp do Big WM Virtual Keyboard (tile 64×64).
+ * big-keyboard-dockapp: o dockapp do Big WM Virtual Keyboard (tile 64×64),
+ * dois botões de verdade (desenho, áreas e cliques em bk-dock.c):
  *
- *    ┌──────────┬──────────┐
- *    │ ▫▫▫▫▫▫  │   ┌─┐ ●  │   metade esquerda: um teclado; direita: um
- *    │ ▫▫▫▫▫▫  │  ─┼─  ●● │   controle. A metade do modo ativo acende (LED
- *    │ ▫▬▬▬▫   │   └─┘ ●  │   verde); o LED azul no canto: controle ligado.
- *    └──────────┴──────────┘
+ *    ┌─────────┬┬─────────┐
+ *    │ ┌─────┐ ││   ▲     │   esquerda: tecla Enter ↵, abre/oculta o teclado
+ *    │ │   ↵ │ ││ ◀ ● ▶   │   direita: direcional, abre/oculta o controle na
+ *    │ └─────┘ ││   ▼     │   tela; o botão da janela aberta fica afundado
+ *    └─────────┴┴─────────┘
  *
- *   clique: abre/fecha o teclado · duplo clique: configurações ·
- *   botão direito: menu (teclado, controle na tela, híbrido, layout do
- *   controle, editar, configurações, ajuda, sobre, sair) · arrastar: o
- *   Window Maker move o tile.
+ *   clique: alterna a metade · duplo clique (na mesma metade):
+ *   configurações, sem alternar nada · botão direito: menu · arrastar: o
+ *   Window Maker move o tile · parar o ponteiro: dica da metade.
  *
  * Um dockapp X11 (líder retirado com janela de ícone): o Window Maker o
  * acopla, e o wlmaker o acopla pelo XWayland, como os outros dockapps da
  * sessão. Fala com o aplicativo pelas ações D-Bus (org.gtk.Actions) e segue
- * o estado dele (mode, pad-connected): nada de relógio, só eventos.
+ * o estado dele (mode, pad-connected): nada de relógio; o único temporizador
+ * é o do clique pendente (o intervalo de duplo clique) e o da dica.
  */
+#include "bk-dock.h"
+
 #include <cairo-xlib.h>
 #include <gdk/gdkx.h>
 #include <gio/gio.h>
 #include <gtk/gtk.h>
 #include <locale.h>
-#include <math.h>
 #include <string.h>
+#include <unistd.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
@@ -33,6 +36,7 @@
 #define APP_ID "io.github.big_windowmaker.BigKeyboard"
 #define APP_PATH "/io/github/big_windowmaker/BigKeyboard"
 #define DRAG 4
+#define TIP_DELAY_MS 500
 
 typedef struct {
     Display *dpy;
@@ -41,12 +45,18 @@ typedef struct {
     GDBusConnection *bus;
     GDBusActionGroup *actions;
     char mode[16];
-    gboolean pad;
-    gboolean pressed, hover, menu_pending, dragged;
+    BkDockLayout lay;
+    BkDockState st;
+    BkClicker clk;
+    guint click_timer;
+    gboolean down, menu_pending, dragged;
     int px, py, pxr, pyr;
-    guint32 last_click, menu_time;
+    guint32 menu_time;
     int menu_x, menu_y;
-    gboolean dark;
+    GtkWidget *tip;
+    GtkWidget *tip_label;
+    guint tip_timer;
+    int tile_x, tile_y; /* canto do tile na raiz, pelo último evento do ponteiro */
 } Dock;
 
 static gboolean
@@ -59,117 +69,32 @@ is_dark(void)
     return dark;
 }
 
+static gint64
+now_ms(void)
+{
+    return g_get_monotonic_time() / 1000;
+}
+
+/* O controle na tela só serve com o controle virtual (uinput): sem acesso,
+ * o direcional fica apagado e a dica explica (conferido a cada passagem do
+ * ponteiro, sem relógio). */
+static gboolean
+uinput_ok(void)
+{
+    return access("/dev/uinput", W_OK) == 0;
+}
+
 /* ---- desenho ------------------------------------------------------------- */
-
-static void
-bevel(cairo_t *cr, double x, double y, double w, double h, gboolean raised)
-{
-    cairo_set_line_width(cr, 1);
-    cairo_set_source_rgb(cr, raised ? 1 : 0.33, raised ? 1 : 0.33, raised ? 1 : 0.33);
-    cairo_move_to(cr, x + 0.5, y + h - 0.5);
-    cairo_line_to(cr, x + 0.5, y + 0.5);
-    cairo_line_to(cr, x + w - 0.5, y + 0.5);
-    cairo_stroke(cr);
-    cairo_set_source_rgb(cr, raised ? 0 : 1, raised ? 0 : 1, raised ? 0 : 1);
-    cairo_move_to(cr, x + w - 0.5, y + 0.5);
-    cairo_line_to(cr, x + w - 0.5, y + h - 0.5);
-    cairo_line_to(cr, x + 0.5, y + h - 0.5);
-    cairo_stroke(cr);
-}
-
-static void
-rect(cairo_t *cr, double x, double y, double w, double h, double v)
-{
-    cairo_set_source_rgb(cr, v, v, v);
-    cairo_rectangle(cr, x, y, w, h);
-    cairo_fill(cr);
-}
-
-/* Metade esquerda: um tecladinho em relevo sobre um visor fundo. */
-static void
-draw_keyboard(cairo_t *cr, double x, double y, double w, double h, gboolean on, gboolean dark)
-{
-    rect(cr, x, y, w, h, on ? (dark ? 0.22 : 0.80) : (dark ? 0.12 : 0.55));
-    bevel(cr, x, y, w, h, FALSE);
-    double k = 4, g = 1, ox = x + 2.5, oy = y + 10;
-    static const int cols[3] = { 6, 6, 5 };
-    for (int r = 0; r < 3; r++)
-        for (int c = 0; c < cols[r]; c++) {
-            double kx = ox + c * (k + g) + (r == 2 ? 2.5 : r == 1 ? 1 : 0), ky = oy + r * (k + g);
-            rect(cr, kx, ky, k, k, on ? 0.95 : 0.80);
-            cairo_set_source_rgb(cr, 0.2, 0.2, 0.2);
-            cairo_rectangle(cr, kx + k - 1, ky, 1, k);
-            cairo_rectangle(cr, kx, ky + k - 1, k, 1);
-            cairo_fill(cr);
-        }
-    /* barra de espaço */
-    rect(cr, ox + 6, oy + 3 * (k + g), 16, k, on ? 0.95 : 0.80);
-    cairo_set_source_rgb(cr, 0.2, 0.2, 0.2);
-    cairo_rectangle(cr, ox + 6, oy + 3 * (k + g) + k - 1, 16, 1);
-    cairo_fill(cr);
-}
-
-/* Metade direita: um controle (direcional e quatro botões). */
-static void
-draw_pad(cairo_t *cr, double x, double y, double w, double h, gboolean on, gboolean dark)
-{
-    rect(cr, x, y, w, h, on ? (dark ? 0.22 : 0.80) : (dark ? 0.12 : 0.55));
-    bevel(cr, x, y, w, h, FALSE);
-    double cx = x + w / 2, cy = y + h / 2 + 3;
-    /* corpo do controle */
-    cairo_set_source_rgb(cr, on ? 0.30 : 0.22, on ? 0.30 : 0.22, on ? 0.33 : 0.25);
-    cairo_new_path(cr);
-    cairo_arc(cr, cx - 7, cy, 7, M_PI / 2, 3 * M_PI / 2);
-    cairo_arc(cr, cx + 7, cy, 7, -M_PI / 2, M_PI / 2);
-    cairo_close_path(cr);
-    cairo_fill(cr);
-    /* direcional */
-    cairo_set_source_rgb(cr, 0.85, 0.85, 0.85);
-    cairo_rectangle(cr, cx - 10, cy - 1, 6, 2);
-    cairo_rectangle(cr, cx - 8, cy - 3, 2, 6);
-    cairo_fill(cr);
-    /* botões coloridos, como manda a tradição */
-    const double b[4][5] = { { 8, -3, 0.95, 0.75, 0.10 }, { 11, 0, 0.85, 0.20, 0.15 }, { 8, 3, 0.20, 0.70, 0.25 },
-                             { 5, 0, 0.20, 0.45, 0.90 } };
-    for (int i = 0; i < 4; i++) {
-        cairo_set_source_rgb(cr, b[i][2], b[i][3], b[i][4]);
-        cairo_arc(cr, cx + b[i][0], cy + b[i][1], 1.4, 0, 2 * M_PI);
-        cairo_fill(cr);
-    }
-}
-
-static void
-led(cairo_t *cr, double x, double y, double r, double g, double b, gboolean on)
-{
-    cairo_set_source_rgb(cr, on ? r : 0.25, on ? g : 0.25, on ? b : 0.25);
-    cairo_rectangle(cr, x, y, 4, 4);
-    cairo_fill(cr);
-}
 
 static void
 redraw(Dock *d)
 {
+    d->st.active[BK_HALF_KBD] = !strcmp(d->mode, "keyboard") || !strcmp(d->mode, "hybrid");
+    d->st.active[BK_HALF_PAD] = !strcmp(d->mode, "gamepad") || !strcmp(d->mode, "hybrid");
     cairo_surface_t *s = cairo_xlib_surface_create(d->dpy, d->icon, DefaultVisual(d->dpy, DefaultScreen(d->dpy)),
-                                                   SIZE, SIZE);
+                                                   d->lay.w, d->lay.h);
     cairo_t *cr = cairo_create(s);
-    gboolean kb = !strcmp(d->mode, "keyboard") || !strcmp(d->mode, "hybrid");
-    gboolean gp = !strcmp(d->mode, "gamepad") || !strcmp(d->mode, "hybrid");
-    double body = d->dark ? 0.24 : 0.667;
-    rect(cr, 0, 0, SIZE, SIZE, d->hover && !d->pressed ? body + 0.05 : body);
-    bevel(cr, 0, 0, SIZE, SIZE, !d->pressed);
-    draw_keyboard(cr, 4, 4, 28, 48, kb, d->dark);
-    draw_pad(cr, 33, 4, 27, 48, gp, d->dark);
-    /* etiqueta e LEDs no rodapé */
-    led(cr, 6, 55, 0.19, 0.82, 0.19, kb);
-    led(cr, 35, 55, 0.19, 0.82, 0.19, gp);
-    led(cr, 54, 55, 0.20, 0.55, 1.0, d->pad); /* controle físico ligado */
-    cairo_set_source_rgb(cr, d->dark ? 0.9 : 0, d->dark ? 0.9 : 0, d->dark ? 0.9 : 0);
-    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 7);
-    cairo_move_to(cr, 13, 60);
-    cairo_show_text(cr, "KBD");
-    cairo_move_to(cr, 42, 60);
-    cairo_show_text(cr, "PAD");
+    bk_dock_draw(cr, &d->lay, &d->st);
     cairo_destroy(cr);
     cairo_surface_destroy(s);
     XFlush(d->dpy);
@@ -185,7 +110,7 @@ on_state(GActionGroup *g, const char *name, GVariant *v, gpointer data)
     if (!strcmp(name, "mode"))
         g_strlcpy(d->mode, g_variant_get_string(v, NULL), sizeof d->mode);
     else if (!strcmp(name, "pad-connected"))
-        d->pad = g_variant_get_boolean(v);
+        d->st.pad_connected = g_variant_get_boolean(v);
     redraw(d);
 }
 
@@ -201,7 +126,7 @@ read_states(Dock *d)
     }
     GVariant *p = g_action_group_get_action_state(G_ACTION_GROUP(d->actions), "pad-connected");
     if (p) {
-        d->pad = g_variant_get_boolean(p);
+        d->st.pad_connected = g_variant_get_boolean(p);
         g_variant_unref(p);
     }
     redraw(d);
@@ -238,7 +163,7 @@ on_vanished(GDBusConnection *c, const char *name, gpointer data)
     Dock *d = data;
     g_clear_object(&d->actions);
     g_strlcpy(d->mode, "hidden", sizeof d->mode);
-    d->pad = FALSE;
+    d->st.pad_connected = FALSE;
     redraw(d);
 }
 
@@ -386,37 +311,200 @@ wm_forward(Dock *d)
     XFlush(d->dpy);
 }
 
+/* ---- dica ------------------------------------------------------------------ */
+
+static void
+tip_hide(Dock *d)
+{
+    if (d->tip_timer) {
+        g_source_remove(d->tip_timer);
+        d->tip_timer = 0;
+    }
+    if (d->tip)
+        gtk_widget_hide(d->tip);
+}
+
+static gboolean
+tip_show(gpointer data)
+{
+    Dock *d = data;
+    d->tip_timer = 0;
+    BkHalf h = d->st.hover;
+    if (h == BK_HALF_NONE || d->down)
+        return G_SOURCE_REMOVE;
+    if (!d->tip) {
+        d->tip = gtk_window_new(GTK_WINDOW_POPUP);
+        gtk_window_set_type_hint(GTK_WINDOW(d->tip), GDK_WINDOW_TYPE_HINT_TOOLTIP);
+        gtk_style_context_add_class(gtk_widget_get_style_context(d->tip), "tooltip");
+        d->tip_label = gtk_label_new(NULL);
+        gtk_container_set_border_width(GTK_CONTAINER(d->tip), 6);
+        gtk_container_add(GTK_CONTAINER(d->tip), d->tip_label);
+    }
+    const char *text;
+    if (h == BK_HALF_KBD)
+        text = "<b>Teclado virtual</b> — Clique para abrir/ocultar\n"
+               "<small>Duplo clique: configurações · botão direito: menu</small>";
+    else if (d->st.disabled[BK_HALF_PAD] && !d->st.active[BK_HALF_PAD])
+        text = "<b>Controle na tela</b> — indisponível\n"
+               "<small>Sem acesso ao /dev/uinput: instale o steam-devices (ou o game-devices-udev).\n"
+               "Duplo clique: configurações · botão direito: menu</small>";
+    else
+        text = "<b>Controle na tela</b> — Clique para abrir/ocultar\n"
+               "<small>Duplo clique: configurações · botão direito: menu</small>";
+    gtk_label_set_markup(GTK_LABEL(d->tip_label), text);
+    gtk_widget_show_all(d->tip);
+    /* abaixo do tile (acima, se não couber no monitor). A posição vem do
+     * ponteiro (raiz − local): no XWayland, a janela do dockapp fica em 0,0
+     * na raiz X, e só os eventos trazem a posição real na tela. */
+    int tx = d->tile_x, ty = d->tile_y;
+    GtkRequisition req;
+    gtk_widget_get_preferred_size(d->tip, NULL, &req);
+    GdkMonitor *m = gdk_display_get_monitor_at_point(gdk_display_get_default(), tx + d->lay.w / 2, ty);
+    GdkRectangle g = { 0, 0, 1 << 15, 1 << 15 };
+    if (m)
+        gdk_monitor_get_geometry(m, &g);
+    int x = tx + (int)d->lay.btn[h].x, y = ty + d->lay.h + 4;
+    if (y + req.height > g.y + g.height)
+        y = ty - req.height - 4;
+    x = CLAMP(x, g.x, MAX(g.x, g.x + g.width - req.width));
+    gtk_window_move(GTK_WINDOW(d->tip), x, y);
+    return G_SOURCE_REMOVE;
+}
+
+static void
+tip_restart(Dock *d)
+{
+    tip_hide(d);
+    if (d->st.hover != BK_HALF_NONE)
+        d->tip_timer = g_timeout_add(TIP_DELAY_MS, tip_show, d);
+}
+
+/* ---- cliques ------------------------------------------------------------------ */
+
+static void
+run_click(Dock *d, BkClick c)
+{
+    switch (c) {
+    case BK_CLICK_TOGGLE_KBD:
+        act(d, "toggle", NULL);
+        break;
+    case BK_CLICK_TOGGLE_PAD:
+        /* indisponível: só fecha (aberto pelo menu); abrir não faria nada */
+        if (d->st.disabled[BK_HALF_PAD] && !d->st.active[BK_HALF_PAD]) {
+            tip_show(d);
+            break;
+        }
+        act(d, "gamepad", NULL);
+        break;
+    case BK_CLICK_SETTINGS:
+        act(d, "settings", g_variant_new_string("general"));
+        break;
+    case BK_CLICK_NONE:
+        break;
+    }
+}
+
+static void schedule_click(Dock *d);
+
+static gboolean
+on_click_timer(gpointer data)
+{
+    Dock *d = data;
+    d->click_timer = 0;
+    run_click(d, bk_clicker_timeout(&d->clk, now_ms()));
+    schedule_click(d);
+    return G_SOURCE_REMOVE;
+}
+
+/* Um temporizador só enquanto há um clique pendente. */
+static void
+schedule_click(Dock *d)
+{
+    if (d->click_timer) {
+        g_source_remove(d->click_timer);
+        d->click_timer = 0;
+    }
+    gint64 dl = bk_clicker_deadline(&d->clk);
+    if (dl >= 0)
+        d->click_timer = g_timeout_add((guint)MAX(0, dl - now_ms()), on_click_timer, d);
+}
+
+static void
+set_hover(Dock *d, BkHalf h)
+{
+    if (h == d->st.hover)
+        return;
+    d->st.hover = h;
+    d->st.disabled[BK_HALF_PAD] = !uinput_ok();
+    redraw(d);
+    tip_restart(d);
+}
+
 static GdkFilterReturn
 x_filter(GdkXEvent *xev, GdkEvent *event, gpointer data)
 {
     (void)event;
     Dock *d = data;
     XEvent *ev = xev;
+    if (ev->type == MotionNotify) {
+        d->tile_x = ev->xmotion.x_root - ev->xmotion.x;
+        d->tile_y = ev->xmotion.y_root - ev->xmotion.y;
+    } else if (ev->type == EnterNotify) {
+        d->tile_x = ev->xcrossing.x_root - ev->xcrossing.x;
+        d->tile_y = ev->xcrossing.y_root - ev->xcrossing.y;
+    }
     switch (ev->type) {
     case Expose:
         if (ev->xexpose.count == 0)
             redraw(d);
         return GDK_FILTER_REMOVE;
+    case ConfigureNotify:
+        if (ev->xconfigure.width != d->lay.w || ev->xconfigure.height != d->lay.h) {
+            bk_dock_layout(&d->lay, ev->xconfigure.width, ev->xconfigure.height);
+            redraw(d);
+        }
+        return GDK_FILTER_CONTINUE;
     case ButtonPress:
+        tip_hide(d);
         if (ev->xbutton.button == Button3) {
+            /* um clique pendente vale antes do menu; o direito não alterna nada */
+            run_click(d, bk_clicker_flush(&d->clk));
+            schedule_click(d);
             d->menu_pending = TRUE; /* abre ao soltar: a pegada do clique impediria a do menu */
         } else if (ev->xbutton.button == Button1) {
-            d->pressed = TRUE;
+            BkHalf h = bk_dock_hit(&d->lay, ev->xbutton.x, ev->xbutton.y);
+            run_click(d, bk_clicker_press(&d->clk, h, ev->xbutton.x, ev->xbutton.y, now_ms()));
+            schedule_click(d);
+            d->down = TRUE;
             d->dragged = FALSE;
             d->px = ev->xbutton.x;
             d->py = ev->xbutton.y;
             d->pxr = ev->xbutton.x_root;
             d->pyr = ev->xbutton.y_root;
+            d->st.pressed = h;
             redraw(d);
         }
         return GDK_FILTER_REMOVE;
     case MotionNotify:
-        if (d->pressed && !d->dragged &&
+        if (d->down && !d->dragged &&
             (abs(ev->xmotion.x - d->px) > DRAG || abs(ev->xmotion.y - d->py) > DRAG)) {
             d->dragged = TRUE;
-            d->pressed = FALSE;
+            d->down = FALSE;
+            bk_clicker_cancel(&d->clk);
+            schedule_click(d);
+            d->st.pressed = BK_HALF_NONE;
             redraw(d);
             wm_forward(d);
+        } else if (d->down) {
+            /* apertado: a metade só aparece afundada com o ponteiro sobre ela */
+            BkHalf h = bk_dock_hit(&d->lay, ev->xmotion.x, ev->xmotion.y);
+            BkHalf p = h == d->clk.down_half ? h : BK_HALF_NONE;
+            if (p != d->st.pressed) {
+                d->st.pressed = p;
+                redraw(d);
+            }
+        } else {
+            set_hover(d, bk_dock_hit(&d->lay, ev->xmotion.x, ev->xmotion.y));
         }
         return GDK_FILTER_REMOVE;
     case ButtonRelease:
@@ -426,26 +514,23 @@ x_filter(GdkXEvent *xev, GdkEvent *event, gpointer data)
             d->menu_x = ev->xbutton.x_root;
             d->menu_y = ev->xbutton.y_root;
             g_idle_add(show_menu_idle, d); /* depois de soltar: a pegada do clique já acabou */
-        } else if (ev->xbutton.button == Button1 && d->pressed) {
-            d->pressed = FALSE;
+        } else if (ev->xbutton.button == Button1 && d->down) {
+            d->down = FALSE;
+            BkHalf h = bk_dock_hit(&d->lay, ev->xbutton.x, ev->xbutton.y);
+            run_click(d, bk_clicker_release(&d->clk, h, now_ms()));
+            schedule_click(d);
+            d->st.pressed = BK_HALF_NONE;
+            d->st.hover = h;
             redraw(d);
-            int dbl = 400;
-            g_object_get(gtk_settings_get_default(), "gtk-double-click-time", &dbl, NULL);
-            /* cada clique alterna o teclado na hora; o segundo de um duplo
-             * clique (que o devolve ao estado anterior) abre as configurações */
-            act(d, "toggle", NULL);
-            if (d->last_click && ev->xbutton.time - d->last_click <= (guint32)dbl) {
-                d->last_click = 0;
-                act(d, "settings", g_variant_new_string("general"));
-            } else {
-                d->last_click = ev->xbutton.time;
-            }
         }
         return GDK_FILTER_REMOVE;
     case EnterNotify:
+        set_hover(d, bk_dock_hit(&d->lay, ev->xcrossing.x, ev->xcrossing.y));
+        return GDK_FILTER_REMOVE;
     case LeaveNotify:
-        d->hover = ev->type == EnterNotify;
-        redraw(d);
+        if (!d->down)
+            set_hover(d, BK_HALF_NONE);
+        tip_hide(d);
         return GDK_FILTER_REMOVE;
     default:
         return GDK_FILTER_CONTINUE;
@@ -481,8 +566,8 @@ create_windows(Dock *d, int argc, char **argv)
     XSetWMHints(d->dpy, d->leader, &wh);
     XSetCommand(d->dpy, d->leader, argv, argc); /* o Command que o Window Maker guarda */
     XSelectInput(d->dpy, d->icon,
-                 ExposureMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | EnterWindowMask |
-                     LeaveWindowMask);
+                 ExposureMask | StructureNotifyMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask |
+                     EnterWindowMask | LeaveWindowMask);
     XMapWindow(d->dpy, d->leader);
     XFlush(d->dpy);
     d->gicon = gdk_x11_window_foreign_new_for_display(gd, d->icon);
@@ -497,7 +582,7 @@ on_theme(GFileMonitor *m, GFile *f, GFile *o, GFileMonitorEvent e, gpointer data
     (void)o;
     (void)e;
     Dock *d = data;
-    d->dark = is_dark();
+    d->st.dark = is_dark();
     redraw(d);
 }
 
@@ -509,7 +594,13 @@ main(int argc, char **argv)
     gtk_init(&argc, &argv);
     Dock d = { 0 };
     g_strlcpy(d.mode, "hidden", sizeof d.mode);
-    d.dark = is_dark();
+    d.st.dark = is_dark();
+    d.st.hover = d.st.pressed = BK_HALF_NONE;
+    d.st.disabled[BK_HALF_PAD] = !uinput_ok();
+    bk_dock_layout(&d.lay, SIZE, SIZE);
+    int dist = 5;
+    g_object_get(gtk_settings_get_default(), "gtk-double-click-distance", &dist, NULL);
+    bk_clicker_init(&d.clk, bk_dock_double_click_ms(NULL), dist);
     create_windows(&d, argc, argv);
     redraw(&d);
     char *theme = g_build_filename(g_get_user_config_dir(), "big-wm", "theme", NULL);
