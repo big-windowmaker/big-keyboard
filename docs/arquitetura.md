@@ -52,9 +52,10 @@ Wayland e tem testes próprios (`tests/`).
    layer-shell / `_NET_WM_STRUT_PARTIAL`.
 4. O dockapp fala com o aplicativo pelas ações `org.gtk.Actions`
    (`toggle`, `settings`, `gamepad`, `hybrid`, `release`, `quit`) e segue os
-   estados `mode` e `pad-connected`. O Big Remote Play usa `set-gamepad`,
-   `remote-touch`, `overlay-output`, `release` e o estado
-   `remote-touch-status`.
+   estados `mode` e `pad-connected`: o aplicativo é a única fonte do estado
+   (fechar uma janela por fora também muda o desenho). O Big Remote Play
+   usa `set-gamepad`, `remote-touch`, `overlay-output`, `release` e o
+   estado `remote-touch-status`.
 
 ## Toque remoto (celular → Moonlight → Sunshine)
 
@@ -82,6 +83,37 @@ celular (dedos) → Moonlight (LiSendTouchEvent) → Sunshine (libvirtualhid)
   força só volta a valer se o celular voltar a movê-lo.
 - **Vários Sunshine** (compartilhamento normal e a tela privada do Game
   Window): todos os touchscreens remotos presentes são lidos.
+- **Troca teclado ↔ controle**: o botão vale ao soltar o dedo, para o
+  controle pegar e devolver o dispositivo sem deixar um contato preso no
+  compositor; pelo celular, a troca roda no laço principal, fora da
+  leitura do dispositivo que ela fecha. O gamepad virtual segue ligado;
+  o teclado abre no monitor do controle (`bk_osk_set_monitor`).
+
+## Dockapp
+
+Dois botões num tile de 64×64: moldura de 1 px, sulco de 2 px entre as
+metades, que, como a moldura, não aciona nenhum botão. `src/dockapp/bk-dock.c` não
+depende de X11 (geometria, áreas de clique, clique × duplo clique, desenho
+cairo) e é testado em `tests/test-dock.c`, inclusive por pixels (moldura,
+tamanho dos símbolos, contraste WCAG, estados); `bk-dockapp.c` é a cola.
+
+- **Clique × duplo clique**: um clique só vale depois do intervalo de duplo
+  clique, contado de um aperto ao outro (`DoubleClickTime` do Window Maker,
+  que o big-wm-wprefs-sync leva ao wlmaker; 250 ms sem a chave). O segundo
+  aperto na mesma metade, perto, vira duplo clique: só as configurações,
+  nenhuma alternância. Um aperto na outra metade dispara na hora o clique
+  pendente. Segurar além do intervalo alterna ao soltar; soltar fora do
+  botão ou arrastar (o Window Maker move o tile) não alterna. O único
+  temporizador existe enquanto há um clique pendente.
+- **Estados**: normal, hover, apertado (a tecla afunda), ativo (janela
+  aberta: afundado e mais claro) e desabilitado (o controle na tela sem
+  acesso ao `/dev/uinput`; a dica explica, e o clique só fecha).
+- **Dica**: uma janela `tooltip` do GTK, posicionada pelo ponteiro (no
+  XWayland, a janela do dockapp fica em 0,0 na raiz X).
+- **Controle na tela no X11**: ele é uma janela de tela inteira com entrada
+  só nos botões; o Window Maker 26 (patch 0031 em big-windowmaker/packages)
+  passa esse recorte de entrada ao quadro. Sem ele, o quadro engolia os
+  cliques do Dock, dos dockapps e da área de trabalho.
 
 ## Segurança
 

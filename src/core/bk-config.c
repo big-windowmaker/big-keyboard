@@ -9,6 +9,7 @@ void
 bk_config_defaults(BkConfig *c)
 {
     memset(c, 0, sizeof *c);
+    g_strlcpy(c->display_mode, "independent", sizeof c->display_mode);
     g_strlcpy(c->layout, "auto", sizeof c->layout);
     g_strlcpy(c->theme, "auto", sizeof c->theme);
     c->scale = 1.0;
@@ -118,6 +119,8 @@ bk_config_load(BkConfig *c, const char *path)
     static const char *const modes[] = { "cursor", "point", "both", NULL };
     static const char *const ids[] = { "generic", "xbox360", NULL };
     static const char *const backends[] = { "better-xcloud", "linux", NULL };
+    static const char *const display_modes[] = { "independent", "exclusive", NULL };
+    get_s(k, "General", "DisplayMode", c->display_mode, sizeof c->display_mode, display_modes);
     static const char *const rtouch[] = { "off", "exclusive", "shared", NULL };
     get_s(k, "Keyboard", "Layout", c->layout, sizeof c->layout, layouts);
     get_s(k, "Keyboard", "Theme", c->theme, sizeof c->theme, themes);
@@ -170,6 +173,7 @@ bk_config_save(const BkConfig *c, const char *path, GError **err)
     g_free(dir);
     GKeyFile *k = g_key_file_new();
     g_key_file_set_integer(k, "General", "Version", BK_CONFIG_VERSION);
+    g_key_file_set_string(k, "General", "DisplayMode", c->display_mode);
     g_key_file_set_string(k, "Keyboard", "Layout", c->layout);
     g_key_file_set_string(k, "Keyboard", "Theme", c->theme);
     g_key_file_set_double(k, "Keyboard", "Scale", c->scale);

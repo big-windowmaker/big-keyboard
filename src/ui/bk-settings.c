@@ -240,6 +240,10 @@ page_general(Settings *s)
     static const char *const themes[] = { "auto", "Acompanhar o Big WindowMaker", "light", "Claro (OPENSTEP)",
                                           "dark", "Escuro", NULL };
     row(p, "Tema", NULL, combo(s->app->cfg.theme, sizeof s->app->cfg.theme, themes));
+    static const char *const modes[] = { "independent", "Independente (teclado e controle juntos)", "exclusive",
+                                         "Exclusivo (abrir um oculta o outro)", NULL };
+    row(p, "Modo de exibição", "Vale para os botões do dockapp, o menu e a linha de comando",
+        combo(s->app->cfg.display_mode, sizeof s->app->cfg.display_mode, modes));
     row(p, "Tamanho das teclas", "Teclas maiores ajudam no toque e na acessibilidade",
         scale(&s->app->cfg.scale, 0.6, 2.0, 0.05));
     row(p, "Opacidade", "Precisa de um compositor (picom no X11; o wlmaker no Wayland)",

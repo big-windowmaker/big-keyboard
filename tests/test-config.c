@@ -18,6 +18,7 @@ main(void)
     BkConfig c;
     bk_config_load(&c, f); /* não existe: padrões */
     CHECK(!strcmp(c.layout, "auto") && c.pad && c.scale == 1.0, "padrões");
+    CHECK(!strcmp(c.display_mode, "independent"), "modo de exibição: independente por padrão");
     /* valores fora da faixa e strings não aceitas */
     char *sub = g_path_get_dirname(f);
     g_mkdir_with_parents(sub, 0700);
@@ -34,6 +35,12 @@ main(void)
     BkConfig d;
     bk_config_load(&d, f);
     CHECK(!strcmp(d.layout, "us-intl") && !d.reserve && d.scale == 2.0, "ida e volta");
+    g_file_set_contents(f, "[General]\nVersion=1\nDisplayMode=exclusive\n", -1, NULL);
+    bk_config_load(&d, f);
+    CHECK(!strcmp(d.display_mode, "exclusive"), "modo exclusivo lido");
+    g_file_set_contents(f, "[General]\nVersion=1\nDisplayMode=caos\n", -1, NULL);
+    bk_config_load(&d, f);
+    CHECK(!strcmp(d.display_mode, "independent"), "modo inválido vira o padrão");
     /* migração: versão antiga deixa uma cópia .bak */
     g_file_set_contents(f, "[Keyboard]\nLayout=br\n", -1, NULL);
     bk_config_load(&d, f);

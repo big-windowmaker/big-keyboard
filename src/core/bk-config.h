@@ -14,6 +14,8 @@
 #define BK_CONFIG_VERSION 1
 
 typedef struct {
+    /* [General] */
+    char display_mode[16]; /* independent (teclado e controle juntos), exclusive */
     /* [Keyboard] */
     char layout[16];      /* auto, br, us, us-intl */
     char theme[8];        /* auto (o modo do Big WindowMaker), light, dark */

@@ -3,7 +3,10 @@
 #
 # Big WM Virtual Keyboard: teclado na tela (ABNT2, US, US internacional),
 # digitação pelo controle físico (estilo SteamOS), controle na tela de toque
-# com controle virtual (uinput) e o dockapp metade teclado, metade controle.
+# com controle virtual (uinput) e o dockapp de dois botões (Enter ↵ e
+# direcional). Um botão troca o teclado pelo controle na tela e vice-versa.
+# Toque remoto: os dedos de um celular no Moonlight chegam pelo touchscreen
+# virtual do Sunshine (regra udev própria, só para esse dispositivo).
 # X11 (XTest) e Wayland (zwp_virtual_keyboard_v1, layer-shell).
 #
 # Para compilar a cópia local do repositório:
@@ -15,13 +18,16 @@ pkgdesc="Big WindowMaker: teclado na tela, digitação pelo controle e controle 
 arch=('x86_64')
 url="https://github.com/big-windowmaker/big-keyboard"
 license=('GPL-2.0-or-later')
-depends=('glibc' 'glib2' 'gtk3' 'cairo' 'pango' 'libx11' 'libxtst' 'libxkbcommon' 'wayland'
+depends=('glibc' 'glib2' 'gtk3' 'at-spi2-core' 'cairo' 'pango' 'libx11' 'libxtst' 'libxkbcommon' 'wayland'
 	'gtk-layer-shell' 'systemd-libs' 'hicolor-icon-theme')
 makedepends=('git' 'meson' 'wayland-protocols')
 optdepends=(
 	'steam-devices: acesso ao /dev/uinput para o controle virtual (regra uaccess)'
 	'game-devices-udev: alternativa ao steam-devices para o /dev/uinput'
 	'big-wm-lockscreen: o teclado com controle na tela de bloqueio'
+	'big-wm-session: botão das configurações da tela de bloqueio (big-wm-lock-settings)'
+	'picom: transparência do controle na tela no X11 (sem compositor, o fundo fica preto)'
+	'sunshine: toque remoto do celular pelo Moonlight no controle na tela (2026.1113 ou mais novo)'
 )
 source=("big-keyboard::${BIG_KEYBOARD_SOURCE:-git+$url.git#tag=v$pkgver}")
 sha256sums=('SKIP')
