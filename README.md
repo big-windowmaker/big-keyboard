@@ -458,6 +458,11 @@ Os laboratórios de X11 e Wayland e as medições estão em [docs/qa-2026-11-14.
 - Ainda não existe teclado e mouse como controle para jogos **locais**; para o xCloud, o Better xCloud faz
   isso no navegador.
 - A interface ainda não usa o gettext (os textos estão em português).
+- Toque remoto no modo `shared`: enquanto um celular estiver conectado, uma tela de toque física não opera
+  o teclado nem o controle na tela (o compositor entregaria o mesmo dedo do celular de novo, e o programa
+  ignora os toques que vêm por ele). No `exclusive`, o padrão, isso não acontece.
+- Sem `--output`, o toque do celular vale para o monitor principal: com vários monitores, o Big Remote Play
+  (ou `--output`) precisa apontar o transmitido.
 - Sem uma fonte de emoji (o pacote depende do `noto-fonts-emoji`), os emojis do painel ☺ aparecem como
   quadrados com o código.
 - Não verificados: tela de toque real, HiDPI real, vários monitores, KDE Plasma, XFCE e Cinnamon; o mouse
