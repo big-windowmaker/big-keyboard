@@ -73,7 +73,7 @@ em descritores, sem gastar CPU: abrir o teclado leva cerca de 33 ms
 ## O dockapp de dois botões
 
 `big-keyboard-dockapp` é um ladrilho de 64×64 px para o Dock ou o Clip do Window Maker (no wlmaker, pelo
-XWayland). São dois botões de verdade, separados por um sulco que, como a moldura, não aciona nada.
+XWayland). O dockapp tem 58×58 e deixa livre uma borda fina em volta: segure ali para arrastar o ladrilho. São dois botões de verdade, separados por um sulco que, como a moldura, não aciona nada.
 Embaixo de cada um, um LED: verde com a janela aberta, cinza fechada. No menu Principal, ele fica em
 **Configurações > Dockapps > Ferramentas > Teclado e controle na tela**.
 

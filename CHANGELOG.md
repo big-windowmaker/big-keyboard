@@ -31,6 +31,11 @@
 - **Ícone novo**: controle sobre teclado, em branco, num quadrado
   arredondado verde-azulado com gradiente (o estilo dos ícones do Big
   Remote Play Together). `librsvg` passa a ser dependência explícita.
+- **Dockapp**: 58×58 no ladrilho de 64×64, como os dockapps clássicos,
+  deixando livre uma borda fina (3 px) por onde segurar e arrastar o
+  ladrilho para outro lugar. No wlmaker não havia como arrastá-lo: ele só
+  move um dockapp X11 pela borda do ladrilho (ou com o modificador de mover
+  janelas), e a janela de 64×64 a cobria inteira.
 
 ## 0.2.0 (2026-11-15)
 

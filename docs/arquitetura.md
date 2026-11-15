@@ -104,7 +104,9 @@ celular (dedos) → Moonlight (LiSendTouchEvent) → Sunshine (libvirtualhid)
 
 ## Dockapp
 
-Dois botões num tile de 64×64: moldura de 1 px, sulco de 2 px entre as
+Dois botões numa janela de 58×58 (o ladrilho é de 64×64: a borda livre de
+3 px é por onde o Window Maker e o wlmaker arrastam o ladrilho; o wlmaker
+só arrasta um dockapp X11 por ali): moldura de 1 px, sulco de 2 px entre as
 metades, que, como a moldura, não aciona nenhum botão. `src/dockapp/bk-dock.c` não
 depende de X11 (geometria, áreas de clique, clique × duplo clique, desenho
 cairo) e é testado em `tests/test-dock.c`, inclusive por pixels (moldura,
