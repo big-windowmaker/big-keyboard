@@ -1156,6 +1156,10 @@ place_window(BkOsk *osk)
                 osk->pos_y = c->float_y;
             } else { /* embaixo, ao centro (com a moldura do gerenciador, se houver) */
                 int deco = osk->kind == WIN_FLOAT_WM ? 34 : 0;
+                /* Wayland: a borda que o Dock com Abas reserva só o
+                 * compositor sabe (se houver painel em cima, fica mais alto) */
+                if (osk->layer && mon)
+                    wa.height = bk_monitor_usable_height(d, mon, wa.height);
                 osk->pos_x = wa.x + (wa.width - w) / 2;
                 osk->pos_y = wa.y + wa.height - h - deco - 8;
             }
@@ -1520,6 +1524,10 @@ bk_osk_set_visible(BkOsk *osk, gboolean visible)
     if (visible == bk_osk_visible(osk))
         return;
     if (visible) {
+        /* sem lugar salvo, o padrão vem da área útil de agora: o daemon sobe
+         * com a sessão, antes de o Dock com Abas reservar a borda de baixo */
+        if (osk->app->cfg.float_x < 0)
+            osk->placed = FALSE;
         osk_follow(osk);
         osk_layout(osk); /* monitor e escala do momento */
         gtk_widget_show_all(osk->win);

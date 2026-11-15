@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/big-windowmaker/big-keyboard/actions/workflows/ci.yml"><img src="https://github.com/big-windowmaker/big-keyboard/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/vers%C3%A3o-0.2.0-informational" alt="Versão 0.2.0">
+  <img src="https://img.shields.io/badge/vers%C3%A3o-0.2.1-informational" alt="Versão 0.2.1">
   <img src="https://img.shields.io/badge/licen%C3%A7a-GPL--2.0--or--later-blue" alt="Licença GPL-2.0-or-later">
   <img src="https://img.shields.io/badge/sess%C3%B5es-X11%20%7C%20Wayland-555" alt="X11 e Wayland">
 </p>
@@ -400,7 +400,7 @@ O pacote `big-keyboard` do Arch/Manjaro está em [`pkgbuild/PKGBUILD`](pkgbuild/
 testa, empacota e roda o `namcap` a cada push (o artefato do CI é feito do commit, com o dockapp atual).
 
 > [!NOTE]
-> Sem `BIG_KEYBOARD_SOURCE`, o PKGBUILD compila a tag da versão (`v0.2.0`). Para empacotar o que está
+> Sem `BIG_KEYBOARD_SOURCE`, o PKGBUILD compila a tag da versão (`v0.2.1`). Para empacotar o que está
 > no `main` (ou a sua cópia local), aponte para o commit:
 
 ```sh

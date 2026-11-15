@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-project('big-keyboard', 'c', version: '0.2.0', license: 'GPL-2.0-or-later', meson_version: '>= 0.61',
+project('big-keyboard', 'c', version: '0.2.1', license: 'GPL-2.0-or-later', meson_version: '>= 0.61',
         default_options: ['c_std=gnu11', 'warning_level=2', 'buildtype=debugoptimized'])
 
 cc = meson.get_compiler('c')
@@ -51,12 +51,22 @@ if wl_client.found() and gtk_wl.found() and layer_shell.found()
                           command: [scanner, 'client-header', '@INPUT@', '@OUTPUT@'])
   wl_src += custom_target('vp-code', input: vp_xml, output: 'wlr-virtual-pointer-unstable-v1-protocol.c',
                           command: [scanner, 'private-code', '@INPUT@', '@OUTPUT@'])
+  # layer-shell cru: a área útil que os painéis deixam (o GDK 3 não a dá no Wayland)
+  ls_xml = files('protocols/wlr-layer-shell-unstable-v1.xml')
+  wl_src += custom_target('ls-client-header', input: ls_xml, output: 'wlr-layer-shell-unstable-v1-client-protocol.h',
+                          command: [scanner, 'client-header', '@INPUT@', '@OUTPUT@'])
+  wl_src += custom_target('ls-code', input: ls_xml, output: 'wlr-layer-shell-unstable-v1-protocol.c',
+                          command: [scanner, 'private-code', '@INPUT@', '@OUTPUT@'])
   # xdg-output: o nome do conector de cada monitor (o GTK 3 não o dá no Wayland)
   wl_protocols = dependency('wayland-protocols', version: '>= 1.20')
   xo_xml = wl_protocols.get_variable('pkgdatadir') / 'unstable/xdg-output/xdg-output-unstable-v1.xml'
   wl_src += custom_target('xo-client-header', input: xo_xml, output: 'xdg-output-unstable-v1-client-protocol.h',
                           command: [scanner, 'client-header', '@INPUT@', '@OUTPUT@'])
   wl_src += custom_target('xo-code', input: xo_xml, output: 'xdg-output-unstable-v1-protocol.c',
+                          command: [scanner, 'private-code', '@INPUT@', '@OUTPUT@'])
+  # o layer-shell referencia xdg_popup
+  xs_xml = wl_protocols.get_variable('pkgdatadir') / 'stable/xdg-shell/xdg-shell.xml'
+  wl_src += custom_target('xs-code', input: xs_xml, output: 'xdg-shell-protocol.c',
                           command: [scanner, 'private-code', '@INPUT@', '@OUTPUT@'])
   app_deps += [wl_client, gtk_wl, layer_shell]
   app_args += '-DBK_HAVE_WAYLAND'
