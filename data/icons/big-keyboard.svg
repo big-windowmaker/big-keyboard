@@ -1,36 +1,63 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- SPDX-License-Identifier: GPL-2.0-or-later
-     Big WM Virtual Keyboard: metade teclado, metade controle, em relevo OPENSTEP. -->
+     Big WM Virtual Keyboard: controle sobre teclado, em quadrado arredondado
+     com gradiente (mesmo estilo dos ícones big-remote-play-together). -->
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <rect x="0" y="0" width="64" height="64" fill="#aaaaaa"/>
-  <path d="M0.5 63.5V0.5H63.5" fill="none" stroke="#ffffff"/>
-  <path d="M63.5 0.5V63.5H0.5" fill="none" stroke="#000000"/>
-  <path d="M62.5 1.5V62.5H1.5" fill="none" stroke="#555555"/>
-  <!-- visor da esquerda: teclado -->
-  <rect x="4" y="8" width="28" height="44" fill="#cccccc"/>
-  <path d="M4.5 51.5V8.5H31.5" fill="none" stroke="#555555"/>
-  <path d="M31.5 8.5V51.5H4.5" fill="none" stroke="#ffffff"/>
-  <g fill="#f2f2f2" stroke="#333333" stroke-width="0.8">
-    <rect x="7" y="16" width="4" height="4"/><rect x="12" y="16" width="4" height="4"/>
-    <rect x="17" y="16" width="4" height="4"/><rect x="22" y="16" width="4" height="4"/>
-    <rect x="9" y="22" width="4" height="4"/><rect x="14" y="22" width="4" height="4"/>
-    <rect x="19" y="22" width="4" height="4"/><rect x="24" y="22" width="4" height="4"/>
-    <rect x="7" y="28" width="4" height="4"/><rect x="12" y="28" width="4" height="4"/>
-    <rect x="17" y="28" width="4" height="4"/><rect x="22" y="28" width="4" height="4"/>
-    <rect x="11" y="34" width="14" height="4"/>
+  <defs>
+    <linearGradient id="fundo" x1="5.9" y1="3" x2="61" y2="61" gradientUnits="userSpaceOnUse">
+      <stop offset="0.2" stop-color="#0b5d55"/>
+      <stop offset="0.205" stop-color="#0f9e8a"/>
+      <stop offset="1" stop-color="#2dd4a8"/>
+    </linearGradient>
+    <linearGradient id="brilho" x1="0" y1="3" x2="0" y2="61" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="sombra" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="1.2" stdDeviation="1.2" flood-color="#003a33" flood-opacity="0.45"/>
+    </filter>
+    <!-- teclas vazadas -->
+    <mask id="teclas" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <rect x="10" y="36" width="44" height="20" rx="4" fill="#fff"/>
+      <g fill="#000">
+        <rect x="14.25" y="39" width="4" height="4" rx="1"/>
+        <rect x="19.5" y="39" width="4" height="4" rx="1"/>
+        <rect x="24.75" y="39" width="4" height="4" rx="1"/>
+        <rect x="30" y="39" width="4" height="4" rx="1"/>
+        <rect x="35.25" y="39" width="4" height="4" rx="1"/>
+        <rect x="40.5" y="39" width="4" height="4" rx="1"/>
+        <rect x="45.75" y="39" width="4" height="4" rx="1"/>
+        <rect x="16.875" y="44" width="4" height="4" rx="1"/>
+        <rect x="22.125" y="44" width="4" height="4" rx="1"/>
+        <rect x="27.375" y="44" width="4" height="4" rx="1"/>
+        <rect x="32.625" y="44" width="4" height="4" rx="1"/>
+        <rect x="37.875" y="44" width="4" height="4" rx="1"/>
+        <rect x="43.125" y="44" width="4" height="4" rx="1"/>
+        <rect x="14.25" y="49" width="4" height="4" rx="1"/>
+        <rect x="19.5" y="49" width="25" height="4" rx="1"/>
+        <rect x="45.75" y="49" width="4" height="4" rx="1"/>
+      </g>
+    </mask>
+    <!-- botões vazados do controle -->
+    <mask id="botoes" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <path d="M22 9h20c5 0 8 3 9 7l3 10c1 4-1 6-4 6c-2 0-3-1-5-3l-2-2H21l-2 2c-2 2-3 3-5 3c-3 0-5-2-4-6l3-10c1-4 4-7 9-7z" fill="#fff"/>
+      <g fill="#000">
+        <rect x="16.5" y="17" width="9" height="3" rx="0.8"/>
+        <rect x="19.5" y="14" width="3" height="9" rx="0.8"/>
+        <circle cx="43" cy="15" r="1.7"/>
+        <circle cx="46.5" cy="18.5" r="1.7"/>
+        <circle cx="43" cy="22" r="1.7"/>
+        <circle cx="39.5" cy="18.5" r="1.7"/>
+        <rect x="28.6" y="17.7" width="2.6" height="1.6" rx="0.8"/>
+        <rect x="32.8" y="17.7" width="2.6" height="1.6" rx="0.8"/>
+      </g>
+    </mask>
+  </defs>
+  <rect x="3" y="3" width="58" height="58" rx="17.4" fill="url(#fundo)"/>
+  <rect x="3" y="3" width="58" height="58" rx="17.4" fill="url(#brilho)"/>
+  <rect x="3.5" y="3.5" width="57" height="57" rx="16.9" fill="none" stroke="#000" stroke-opacity="0.15"/>
+  <g filter="url(#sombra)">
+    <rect x="10" y="36" width="44" height="20" rx="4" fill="#f9f9f9" fill-opacity="0.82" mask="url(#teclas)"/>
+    <rect x="0" y="0" width="64" height="64" fill="#ffffff" mask="url(#botoes)"/>
   </g>
-  <rect x="7" y="44" width="4" height="4" fill="#30d030"/>
-  <!-- visor da direita: controle -->
-  <rect x="33" y="8" width="27" height="44" fill="#cccccc"/>
-  <path d="M33.5 51.5V8.5H59.5" fill="none" stroke="#555555"/>
-  <path d="M59.5 8.5V51.5H33.5" fill="none" stroke="#ffffff"/>
-  <path d="M40 23h12a7 7 0 0 1 0 14H40a7 7 0 0 1 0-14z" fill="#383840"/>
-  <path d="M37 29h6v2h-6zM39 27h2v6h-2z" fill="#dddddd"/>
-  <circle cx="51" cy="27.5" r="1.5" fill="#f2bf1a"/>
-  <circle cx="54" cy="30" r="1.5" fill="#d93326"/>
-  <circle cx="51" cy="32.5" r="1.5" fill="#33b340"/>
-  <circle cx="48" cy="30" r="1.5" fill="#3373e6"/>
-  <rect x="36" y="44" width="4" height="4" fill="#3a8cff"/>
-  <text x="12" y="61" font-family="Helvetica, Nimbus Sans, sans-serif" font-size="7" font-weight="bold" fill="#000000">KBD</text>
-  <text x="41" y="61" font-family="Helvetica, Nimbus Sans, sans-serif" font-size="7" font-weight="bold" fill="#000000">PAD</text>
 </svg>

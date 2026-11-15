@@ -2,6 +2,35 @@
 
 ## Não lançado
 
+- **Celular como mouse e teclado**: o touchscreen do Sunshine é lido com o
+  teclado aberto também (antes, só com o controle na tela). Cada dedo vai
+  para o que está embaixo dele: as teclas (a barra de título move a
+  janela), os controles, ou o mouse. Só o teclado: touchpad (arrastar move,
+  toque é o clique esquerdo, parar meio segundo e mover arrasta). Teclado e
+  controle juntos: toque direto (o ponteiro vai até o dedo e clica). Nos
+  dois, um dedo segurado e o toque de outro é o clique direito, e dois
+  dedos rolam. Ponteiro pelo `zwlr_virtual_pointer_v1` (Wayland, preso ao
+  monitor transmitido) ou XTest (X11). Com um celular conectado, o teclado
+  abre no monitor transmitido.
+- **Configurações > Celular**: modo do toque, mouse pelo toque
+  (automático, touchpad, toque direto ou desligado), velocidade do
+  touchpad e o estado em palavras.
+- **Estilos e modelos do controle na tela**: cinco estilos (clássico,
+  moderno, retrô, neon, minimalista), botões de Xbox, PlayStation ou
+  Nintendo (nomes e cores), cor de destaque, analógico fixo ou flutuante,
+  direcional em cruz, quatro setas ou disco, e animação de toque (afundar,
+  brilho, onda, encolher), gravados com o layout. O pino do analógico segue
+  o dedo e o direcional acende o lado apertado. Sete modelos prontos (Xbox,
+  PlayStation, Nintendo Switch, retrô, arcade, corrida, mínimo) e uma
+  prévia nas configurações. Layouts antigos continuam como eram.
+- **Correções**: o layout escolhido em Configurações > Teclado vale na
+  hora (antes, só depois de reiniciar a sessão); o controle físico chega
+  aos botões Controle, Configurar e Ocultar; os emojis do painel ☺ pedem
+  uma fonte de emoji (`noto-fonts-emoji`, nova dependência), sem a qual
+  apareciam como quadrados com o código.
+- **Ícone novo**: controle sobre teclado, em branco, num quadrado
+  arredondado verde-azulado com gradiente (o estilo dos ícones do Big
+  Remote Play Together). `librsvg` passa a ser dependência explícita.
 - **Dockapp**: 58×58 no ladrilho de 64×64, como os dockapps clássicos,
   deixando livre uma borda fina (3 px) por onde segurar e arrastar o
   ladrilho para outro lugar. No wlmaker não havia como arrastá-lo: ele só

@@ -12,7 +12,7 @@
  *   remote-touch (s, estado)  off | exclusive | shared — toque do Moonlight
  *   overlay-output (s, estado) conector do monitor transmitido ("" = principal)
  *   remote-touch-status (estado) off, idle, waiting, active, shared, busy,
- *                             denied, error (veja bk_overlay_remote_state)
+ *                             denied, error (veja bk_remote_state)
  *
  * Fica residente (--daemon, no início da sessão) só com descritores
  * parados: o controle físico (udev + evdev) e o arquivo do tema. Nada de
@@ -88,8 +88,9 @@ bk_app_update_state(BkApp *app)
     const char *mode = kb && gp ? "hybrid" : kb ? "keyboard" : gp ? "gamepad" : "hidden";
     g_simple_action_set_state(G_SIMPLE_ACTION(a), g_variant_new_string(mode));
     GAction *rt = g_action_map_lookup_action(G_ACTION_MAP(app->gtk), "remote-touch-status");
-    if (rt && app->overlay)
-        g_simple_action_set_state(G_SIMPLE_ACTION(rt), g_variant_new_string(bk_overlay_remote_state(app->overlay)));
+    if (rt && app->remote)
+        g_simple_action_set_state(G_SIMPLE_ACTION(rt), g_variant_new_string(bk_remote_state(app->remote)));
+    bk_remote_sync(app->remote); /* o teclado ou o controle abriu ou fechou */
     GAction *p = g_action_map_lookup_action(G_ACTION_MAP(app->gtk), "pad-connected");
     if (p)
         g_simple_action_set_state(G_SIMPLE_ACTION(p), g_variant_new_boolean(app->pad_open && app->pad.npads > 0));
@@ -117,6 +118,7 @@ bk_app_release_all(BkApp *app)
         bk_osk_release(app->osk);
     if (app->overlay)
         bk_overlay_release(app->overlay);
+    bk_remote_release(app->remote);
     if (app->vpad)
         bk_vpad_neutral(app->vpad);
 }
@@ -261,6 +263,15 @@ bk_app_config_changed(BkApp *app)
     focus_apply_config(app);
     if (app->osk)
         bk_osk_reload(app->osk);
+    /* o modo do toque do celular mudou nas configurações: a ação o aplica
+     * (e o Big Remote Play vê o estado novo) */
+    GVariant *rt = g_action_group_get_action_state(G_ACTION_GROUP(app->gtk), "remote-touch");
+    if (rt) {
+        if (strcmp(g_variant_get_string(rt, NULL), app->cfg.remote_touch))
+            g_action_group_change_action_state(G_ACTION_GROUP(app->gtk), "remote-touch",
+                                               g_variant_new_string(app->cfg.remote_touch));
+        g_variant_unref(rt);
+    }
 }
 
 /* ---- ações ---------------------------------------------------------------- */
@@ -359,7 +370,7 @@ act_remote_touch(GSimpleAction *a, GVariant *v, gpointer data)
         g_strlcpy(app->cfg.remote_touch, mode, sizeof app->cfg.remote_touch);
         save_config(app);
     }
-    bk_overlay_remote_changed(app->overlay);
+    bk_remote_restart(app->remote);
 }
 
 static void
@@ -455,8 +466,7 @@ on_startup(GApplication *g, gpointer data)
     g_simple_action_set_state(G_SIMPLE_ACTION(oa), g_variant_new_string(app->cfg.overlay_output));
     app->osk = bk_osk_new(app);
     app->overlay = bk_overlay_new(app);
-    if (!strcmp(app->cfg.remote_touch, "off"))
-        bk_overlay_remote_changed(app->overlay);
+    app->remote = bk_remote_new(app);
     pad_apply_config(app);
     focus_apply_config(app);
     char *theme = g_build_filename(g_get_user_config_dir(), "big-wm", "theme", NULL);
@@ -516,7 +526,7 @@ main(int argc, char **argv)
         { "hide", 0, 0, G_OPTION_ARG_NONE, NULL, "Ocultar o teclado", NULL },
         { "toggle", 0, 0, G_OPTION_ARG_NONE, NULL, "Mostrar ou ocultar o teclado", NULL },
         { "settings", 0, 0, G_OPTION_ARG_NONE, NULL, "Abrir as configurações", NULL },
-        { "page", 0, 0, G_OPTION_ARG_STRING, NULL, "Seção das configurações (general, keyboard, gamepad, overlay, games, xcloud, lock, advanced)", "SEÇÃO" },
+        { "page", 0, 0, G_OPTION_ARG_STRING, NULL, "Seção das configurações (general, keyboard, gamepad, overlay, remote, games, xcloud, lock, advanced)", "SEÇÃO" },
         { "gamepad", 0, 0, G_OPTION_ARG_NONE, NULL, "Mostrar ou ocultar o controle na tela", NULL },
         { "edit-gamepad", 0, 0, G_OPTION_ARG_NONE, NULL, "Editar o controle na tela", NULL },
         { "hybrid", 0, 0, G_OPTION_ARG_NONE, NULL, "Teclado e controle juntos", NULL },

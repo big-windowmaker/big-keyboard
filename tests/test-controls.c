@@ -117,6 +117,101 @@ main(void)
             CHECK(!bk_ctl_switch_hit(w, h, cx, cy + rr * 1.5) && !bk_ctl_switch_hit(w, h, w / 2, h / 2),
                   "toque fora do botão (%.0fx%.0f)", w, h);
         }
+
+    /* aparência: padrão de sempre, gravada e lida com o layout */
+    CHECK(!strcmp(d.look.style, "classic") && !strcmp(d.look.buttons, "xbox") && !strcmp(d.look.anim, "sink"),
+          "o padrão é o visual de sempre");
+    {
+        char *dir2 = g_dir_make_tmp("bkctl-XXXXXX", NULL), *f2 = g_build_filename(dir2, "l.ini", NULL);
+        BkCtlLayout a, b;
+        bk_ctl_template(&a, "playstation");
+        CHECK(bk_ctl_save(&a, f2, NULL) && bk_ctl_load(&b, f2, NULL), "gravar e ler um modelo");
+        CHECK(!memcmp(&a.look, &b.look, sizeof a.look) && b.n == a.n, "aparência de ida e volta: %s/%s", b.look.style,
+              b.look.buttons);
+        /* layout antigo (sem aparência) e valores estranhos: o padrão */
+        g_file_set_contents(f2, "[Layout]\nName=v\nStyle=hacker\nButtons=sega\n[Control 00]\nKind=button\nCode=304\n"
+                                "X=0.5\nY=0.5\nSize=0.1\n", -1, NULL);
+        CHECK(bk_ctl_load(&b, f2, NULL) && !strcmp(b.look.style, "classic") && !strcmp(b.look.buttons, "xbox"),
+              "aparência desconhecida vira o padrão: %s %s", b.look.style, b.look.buttons);
+        g_remove(f2);
+        g_rmdir(dir2);
+        g_free(f2);
+        g_free(dir2);
+    }
+    /* rótulos e cores por família: mesma posição, outro nome */
+    {
+        BkCtlLayout x;
+        bk_ctl_default(&x);
+        BkCtl south = { BKC_BUTTON, BTN_SOUTH, 0, 0, 0.1, 0, 1, true }, lt = { BKC_TRIGGER, 0, 0, 0, 0.1, 0, 1, true };
+        double rgb[3];
+        CHECK(!strcmp(bk_ctl_label_for(&x, &south), "A") && !strcmp(bk_ctl_label_for(&x, &lt), "LT"), "Xbox");
+        CHECK(bk_ctl_color(&x, &south, rgb) && rgb[1] > rgb[0] && rgb[1] > rgb[2], "A verde");
+        g_strlcpy(x.look.buttons, "playstation", sizeof x.look.buttons);
+        CHECK(!strcmp(bk_ctl_label_for(&x, &south), "✕") && !strcmp(bk_ctl_label_for(&x, &lt), "L2"), "PlayStation");
+        CHECK(bk_ctl_color(&x, &south, rgb) && rgb[2] > rgb[0], "✕ azul");
+        g_strlcpy(x.look.buttons, "nintendo", sizeof x.look.buttons);
+        CHECK(!strcmp(bk_ctl_label_for(&x, &south), "B") && !strcmp(bk_ctl_label_for(&x, &lt), "ZL"), "Nintendo");
+        CHECK(!bk_ctl_color(&x, &lt, rgb), "gatilho sem cor de marca");
+    }
+    /* analógico flutuante: o centro é onde o dedo encostou */
+    {
+        BkCtlLayout x;
+        bk_ctl_default(&x);
+        g_strlcpy(x.look.stick, "floating", sizeof x.look.stick);
+        Rec q;
+        memset(&q, 0, sizeof q);
+        BkCtlSink k2 = { r_button, r_stick, r_trigger, r_hat, r_sync, &q };
+        BkCtlState s2;
+        bk_ctl_state_init(&s2);
+        int fl;
+        double r0 = bk_ctl_px(&x, &x.c[st], H) / 2, bx = x.c[st].x * W + r0 * 0.6, by = x.c[st].y * H;
+        bk_ctl_touch(&s2, &x, W, H, &fl, BKC_BEGIN, bx, by, &k2);
+        CHECK(q.sx[0] == 0 && q.sy[0] == 0, "encostar fora do centro não inclina o flutuante");
+        bk_ctl_touch(&s2, &x, W, H, &fl, BKC_MOVE, bx + r0, by, &k2);
+        CHECK(fabs(q.sx[0] - 1) < 1e-6, "inclina a partir de onde encostou: %.2f", q.sx[0]);
+        double vcx, vcy, kx, ky;
+        bk_ctl_stick_visual(&x, &s2, W, H, st, &vcx, &vcy, &kx, &ky);
+        CHECK(fabs(vcx - bx) < 1e-6 && fabs(kx - 1) < 1e-6 && fabs(ky) < 1e-6, "a base segue o dedo, o pino na borda");
+        bk_ctl_touch(&s2, &x, W, H, &fl, BKC_END, bx + r0, by, &k2);
+        bk_ctl_stick_visual(&x, &s2, W, H, st, &vcx, &vcy, &kx, &ky);
+        CHECK(kx == 0 && fabs(vcx - x.c[st].x * W) < 1e-6, "solto: volta ao lugar, pino no centro");
+        /* direcional: a direção para desenhar */
+        int dd, hx, hy;
+        double dcx2 = x.c[dp].x * W, dcy2 = x.c[dp].y * H, dr = bk_ctl_px(&x, &x.c[dp], H) / 2;
+        bk_ctl_touch(&s2, &x, W, H, &dd, BKC_BEGIN, dcx2, dcy2 - dr * 0.8, &k2);
+        bk_ctl_dpad_visual(&x, &s2, W, H, dp, &hx, &hy);
+        CHECK(hx == 0 && hy == -1, "direcional para cima: %d %d", hx, hy);
+    }
+    /* modelos: dentro da tela, sem controles sobrepostos, longe do botão do teclado */
+    {
+        int nt = 0;
+        for (const BkCtlTemplate *t = bk_ctl_templates(); t->id; t++, nt++) {
+            BkCtlLayout x;
+            CHECK(bk_ctl_template(&x, t->id) && x.n > 0 && x.name[0], "modelo %s", t->id);
+            const double rs[] = { 4.0 / 3, 16.0 / 9 };
+            for (size_t ri = 0; ri < G_N_ELEMENTS(rs); ri++) {
+                double h = 1080, w = h * rs[ri], cx, cy, rr;
+                bk_ctl_switch_button(w, h, &cx, &cy, &rr);
+                for (int i = 0; i < x.n; i++) {
+                    BkCtl c = x.c[i];
+                    CHECK(!bk_ctl_clamp(&c, w, h, x.scale), "%s: %s fora da tela (%.2f)", t->id,
+                          bk_ctl_label_for(&x, &x.c[i]), rs[ri]);
+                    double ri_ = bk_ctl_px(&x, &x.c[i], h) / 2;
+                    CHECK(hypot(x.c[i].x * w - cx, x.c[i].y * h - cy) > rr * 1.15 + ri_,
+                          "%s: %s cobre o botão do teclado (%.2f)", t->id, bk_ctl_label_for(&x, &x.c[i]), rs[ri]);
+                    for (int j = i + 1; j < x.n; j++) {
+                        double rj = bk_ctl_px(&x, &x.c[j], h) / 2;
+                        CHECK(hypot((x.c[i].x - x.c[j].x) * w, (x.c[i].y - x.c[j].y) * h) >= ri_ + rj,
+                              "%s: %s e %s se sobrepõem (%.2f)", t->id, bk_ctl_label_for(&x, &x.c[i]),
+                              bk_ctl_label_for(&x, &x.c[j]), rs[ri]);
+                    }
+                }
+            }
+        }
+        CHECK(nt >= 7, "sete modelos: %d", nt);
+        BkCtlLayout x;
+        CHECK(!bk_ctl_template(&x, "nao-existe"), "modelo desconhecido recusado");
+    }
     if (!fails)
         printf("bk-controls: todos os casos passaram\n");
     return fails ? 1 : 0;

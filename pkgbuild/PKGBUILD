@@ -13,13 +13,17 @@
 #   BIG_KEYBOARD_SOURCE="git+file://$PWD/.." makepkg
 pkgname=big-keyboard
 pkgver=0.2.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Big WindowMaker: teclado na tela, digitação pelo controle e controle na tela de toque (X11 e Wayland)"
 arch=('x86_64')
 url="https://github.com/big-windowmaker/big-keyboard"
 license=('GPL-2.0-or-later')
 depends=('glibc' 'glib2' 'gtk3' 'at-spi2-core' 'cairo' 'pango' 'libx11' 'libxtst' 'libxkbcommon' 'wayland'
-	'gtk-layer-shell' 'systemd-libs' 'hicolor-icon-theme')
+	'gtk-layer-shell' 'systemd-libs' 'hicolor-icon-theme'
+	# o ícone só existe em SVG (máscara e sombra): desenhado pelo carregador do librsvg
+	'librsvg'
+	# os emojis do painel ☺: sem uma fonte de emoji, viram quadrados com o código
+	'noto-fonts-emoji')
 makedepends=('git' 'meson' 'wayland-protocols')
 optdepends=(
 	'steam-devices: acesso ao /dev/uinput para o controle virtual (regra uaccess)'

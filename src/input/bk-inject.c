@@ -3,6 +3,8 @@
 #define _GNU_SOURCE
 #include "bk-inject.h"
 
+#include <linux/input-event-codes.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -17,6 +19,7 @@
 #endif
 #ifdef BK_HAVE_WAYLAND
 #include "virtual-keyboard-unstable-v1-client-protocol.h"
+#include "wlr-virtual-pointer-unstable-v1-client-protocol.h"
 #include <gdk/gdkwayland.h>
 #endif
 
@@ -31,7 +34,12 @@ struct BkInject {
     struct zwp_virtual_keyboard_v1 *vk;
     xkb_keysym_t syms[MAX_SYMS];
     int nsyms;
+    struct zwlr_virtual_pointer_manager_v1 *pmgr;
+    uint32_t pmgr_version;
+    struct zwlr_virtual_pointer_v1 *vp; /* preso a vp_output (NULL: sem monitor) */
+    struct wl_output *vp_output;
 #endif
+    double scroll_x, scroll_y; /* X11: o resto que ainda não deu um passo da roda */
 #ifdef BK_HAVE_X11
     Display *dpy;
     int spare[SPARE], nspare, next_spare;
@@ -99,10 +107,13 @@ now_ms(void)
 static void
 reg_global(void *data, struct wl_registry *r, uint32_t name, const char *iface, uint32_t version)
 {
-    (void)version;
     BkInject *in = data;
     if (!strcmp(iface, zwp_virtual_keyboard_manager_v1_interface.name))
         in->mgr = wl_registry_bind(r, name, &zwp_virtual_keyboard_manager_v1_interface, 1);
+    else if (!strcmp(iface, zwlr_virtual_pointer_manager_v1_interface.name)) {
+        in->pmgr_version = MIN(version, 2);
+        in->pmgr = wl_registry_bind(r, name, &zwlr_virtual_pointer_manager_v1_interface, in->pmgr_version);
+    }
 }
 
 static void
@@ -320,6 +331,10 @@ bk_inject_free(BkInject *in)
     if (!in)
         return;
 #ifdef BK_HAVE_WAYLAND
+    if (in->vp)
+        zwlr_virtual_pointer_v1_destroy(in->vp);
+    if (in->pmgr)
+        zwlr_virtual_pointer_manager_v1_destroy(in->pmgr);
     if (in->vk)
         zwp_virtual_keyboard_v1_destroy(in->vk);
     if (in->mgr)
@@ -372,4 +387,160 @@ bk_inject_out(BkInject *in, const BkOut *o)
         uint32_t c = utf8_next(&p);
         send_sym(in, xkb_utf32_to_keysym(c), 0);
     }
+}
+
+/* ---- ponteiro -------------------------------------------------------------- */
+
+#ifdef BK_HAVE_WAYLAND
+/* O ponteiro virtual preso ao monitor (o movimento absoluto vale dentro
+ * dele); outro monitor, outro ponteiro. */
+static struct zwlr_virtual_pointer_v1 *
+wl_pointer_for(BkInject *in, GdkMonitor *monitor)
+{
+    struct wl_output *out = monitor && GDK_IS_WAYLAND_MONITOR(monitor) ? gdk_wayland_monitor_get_wl_output(monitor)
+                                                                        : NULL;
+    if (in->vp && (out == in->vp_output || !out))
+        return in->vp;
+    if (in->vp)
+        zwlr_virtual_pointer_v1_destroy(in->vp);
+    if (out && in->pmgr_version >= 2)
+        in->vp = zwlr_virtual_pointer_manager_v1_create_virtual_pointer_with_output(in->pmgr, NULL, out);
+    else
+        in->vp = zwlr_virtual_pointer_manager_v1_create_virtual_pointer(in->pmgr, NULL);
+    in->vp_output = out;
+    return in->vp;
+}
+#endif
+
+gboolean
+bk_inject_has_pointer(const BkInject *in)
+{
+#ifdef BK_HAVE_WAYLAND
+    if (in->pmgr)
+        return TRUE;
+#endif
+#ifdef BK_HAVE_X11
+    if (in->dpy)
+        return TRUE;
+#endif
+    (void)in;
+    return FALSE;
+}
+
+void
+bk_inject_pointer_rel(BkInject *in, double dx, double dy)
+{
+#ifdef BK_HAVE_WAYLAND
+    if (in->pmgr) {
+        struct zwlr_virtual_pointer_v1 *vp = wl_pointer_for(in, NULL);
+        zwlr_virtual_pointer_v1_motion(vp, now_ms(), wl_fixed_from_double(dx), wl_fixed_from_double(dy));
+        zwlr_virtual_pointer_v1_frame(vp);
+        wl_display_flush(in->wl);
+        return;
+    }
+#endif
+#ifdef BK_HAVE_X11
+    if (in->dpy) {
+        XTestFakeRelativeMotionEvent(in->dpy, (int)lround(dx), (int)lround(dy), CurrentTime);
+        XFlush(in->dpy);
+    }
+#endif
+    (void)in;
+    (void)dx;
+    (void)dy;
+}
+
+void
+bk_inject_pointer_abs(BkInject *in, GdkMonitor *monitor, double x, double y)
+{
+    GdkRectangle g = { 0, 0, 1, 1 };
+    if (monitor)
+        gdk_monitor_get_geometry(monitor, &g);
+#ifdef BK_HAVE_WAYLAND
+    if (in->pmgr) {
+        struct zwlr_virtual_pointer_v1 *vp = wl_pointer_for(in, monitor);
+        /* dentro do monitor do ponteiro: extensão = o tamanho dele */
+        uint32_t w = (uint32_t)MAX(1, g.width), h = (uint32_t)MAX(1, g.height);
+        uint32_t px = (uint32_t)CLAMP(lround(x), 0, (long)w - 1), py = (uint32_t)CLAMP(lround(y), 0, (long)h - 1);
+        zwlr_virtual_pointer_v1_motion_absolute(vp, now_ms(), px, py, w, h);
+        zwlr_virtual_pointer_v1_frame(vp);
+        wl_display_flush(in->wl);
+        return;
+    }
+#endif
+#ifdef BK_HAVE_X11
+    if (in->dpy) {
+        int sc = monitor ? gdk_monitor_get_scale_factor(monitor) : 1;
+        XTestFakeMotionEvent(in->dpy, -1, (int)lround((g.x + x) * sc), (int)lround((g.y + y) * sc), CurrentTime);
+        XFlush(in->dpy);
+    }
+#endif
+    (void)in;
+    (void)x;
+    (void)y;
+}
+
+void
+bk_inject_pointer_button(BkInject *in, int button, gboolean down)
+{
+#ifdef BK_HAVE_WAYLAND
+    if (in->pmgr) {
+        struct zwlr_virtual_pointer_v1 *vp = wl_pointer_for(in, NULL);
+        zwlr_virtual_pointer_v1_button(vp, now_ms(), (uint32_t)button,
+                                       down ? WL_POINTER_BUTTON_STATE_PRESSED : WL_POINTER_BUTTON_STATE_RELEASED);
+        zwlr_virtual_pointer_v1_frame(vp);
+        wl_display_flush(in->wl);
+        return;
+    }
+#endif
+#ifdef BK_HAVE_X11
+    if (in->dpy) {
+        XTestFakeButtonEvent(in->dpy, button == BTN_RIGHT ? 3 : button == BTN_MIDDLE ? 2 : 1, down, CurrentTime);
+        XFlush(in->dpy);
+    }
+#endif
+    (void)in;
+    (void)button;
+    (void)down;
+}
+
+#define WHEEL_PX 40.0 /* X11: pixels por passo da roda */
+
+void
+bk_inject_pointer_scroll(BkInject *in, double dx, double dy)
+{
+#ifdef BK_HAVE_WAYLAND
+    if (in->pmgr) {
+        struct zwlr_virtual_pointer_v1 *vp = wl_pointer_for(in, NULL);
+        uint32_t t = now_ms();
+        zwlr_virtual_pointer_v1_axis_source(vp, WL_POINTER_AXIS_SOURCE_FINGER);
+        if (dy != 0)
+            zwlr_virtual_pointer_v1_axis(vp, t, WL_POINTER_AXIS_VERTICAL_SCROLL, wl_fixed_from_double(dy));
+        if (dx != 0)
+            zwlr_virtual_pointer_v1_axis(vp, t, WL_POINTER_AXIS_HORIZONTAL_SCROLL, wl_fixed_from_double(dx));
+        zwlr_virtual_pointer_v1_frame(vp);
+        wl_display_flush(in->wl);
+        return;
+    }
+#endif
+#ifdef BK_HAVE_X11
+    if (in->dpy) {
+        in->scroll_x += dx;
+        in->scroll_y += dy;
+        for (; fabs(in->scroll_y) >= WHEEL_PX; in->scroll_y -= copysign(WHEEL_PX, in->scroll_y)) {
+            unsigned b = in->scroll_y > 0 ? 5 : 4;
+            XTestFakeButtonEvent(in->dpy, b, True, CurrentTime);
+            XTestFakeButtonEvent(in->dpy, b, False, CurrentTime);
+        }
+        for (; fabs(in->scroll_x) >= WHEEL_PX; in->scroll_x -= copysign(WHEEL_PX, in->scroll_x)) {
+            unsigned b = in->scroll_x > 0 ? 7 : 6;
+            XTestFakeButtonEvent(in->dpy, b, True, CurrentTime);
+            XTestFakeButtonEvent(in->dpy, b, False, CurrentTime);
+        }
+        XFlush(in->dpy);
+    }
+#endif
+    (void)in;
+    (void)dx;
+    (void)dy;
 }

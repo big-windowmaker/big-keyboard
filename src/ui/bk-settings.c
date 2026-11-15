@@ -16,7 +16,11 @@
 
 typedef struct {
     BkApp *app;
-    GtkWidget *win, *stack, *pads_label, *tester, *layouts;
+    GtkWidget *win, *stack, *pads_label, *tester, *layouts, *remote_state;
+    /* aparência do layout atual (controle na tela) */
+    GtkWidget *look[6], *preview, *templates;
+    gboolean updating;
+    gulong remote_state_id;
 } Settings;
 
 static Settings *S;
@@ -418,6 +422,8 @@ fill_layouts(Settings *s)
     gtk_combo_box_set_active_id(GTK_COMBO_BOX(s->layouts), s->app->cfg.overlay_layout);
 }
 
+static void look_refresh(Settings *s);
+
 static void
 on_layout_changed(GtkComboBox *c, gpointer data)
 {
@@ -426,6 +432,8 @@ on_layout_changed(GtkComboBox *c, gpointer data)
     if (id && strcmp(id, s->app->cfg.overlay_layout)) {
         g_strlcpy(s->app->cfg.overlay_layout, id, sizeof s->app->cfg.overlay_layout);
         save(s);
+        look_refresh(s);
+        bk_overlay_reload(s->app->overlay);
     }
 }
 
@@ -576,6 +584,236 @@ on_restore_layout(GtkButton *b, gpointer data)
     g_free(path);
 }
 
+/* ---- Celular (toque remoto) ---------------------------------------------- */
+
+static const char *
+remote_state_text(const char *st)
+{
+    static const struct {
+        const char *id, *text;
+    } t[] = {
+        { "off", "Desligado." },
+        { "idle", "Pronto: o toque do celular vale quando o teclado ou o controle na tela estiver aberto." },
+        { "waiting", "Aberto, esperando um celular (nenhum touchscreen do Sunshine conectado)." },
+        { "active", "Celular conectado: os dedos chegam só aqui (exclusivo)." },
+        { "shared", "Celular conectado: os dedos chegam aqui e também ao desktop." },
+        { "busy", "Celular conectado, mas outro programa já agarrou o toque: o mouse pelo toque fica desligado." },
+        { "denied", "Sem permissão para ler o toque do celular (falta a regra udev do pacote)." },
+        { "error", "O toque do celular não pôde ser lido." },
+    };
+    for (size_t i = 0; i < G_N_ELEMENTS(t); i++)
+        if (!strcmp(t[i].id, st))
+            return t[i].text;
+    return st;
+}
+
+static void
+on_remote_state(GActionGroup *g, const char *name, GVariant *v, gpointer data)
+{
+    (void)g;
+    (void)name;
+    Settings *s = data;
+    char *m = g_markup_printf_escaped("<b>Agora:</b> %s", remote_state_text(g_variant_get_string(v, NULL)));
+    gtk_label_set_markup(GTK_LABEL(s->remote_state), m);
+    g_free(m);
+}
+
+static GtkWidget *
+page_remote(Settings *s)
+{
+    GtkWidget *p = page("Celular",
+                        "Jogando pelo celular (Moonlight com toque nativo, como o Big Remote Play Controller), os "
+                        "dedos chegam pelo touchscreen virtual do Sunshine. Com o teclado ou o controle na tela "
+                        "aberto, cada dedo vai para o que estiver embaixo dele: uma tecla, um controle ou o mouse.");
+    s->remote_state = note(p, "");
+    GVariant *v = g_action_group_get_action_state(G_ACTION_GROUP(s->app->gtk), "remote-touch-status");
+    if (v) {
+        on_remote_state(NULL, NULL, v, s);
+        g_variant_unref(v);
+    }
+    s->remote_state_id = g_signal_connect(s->app->gtk, "action-state-changed::remote-touch-status",
+                                          G_CALLBACK(on_remote_state), s);
+    static const char *const modes[] = { "exclusive", "Só o teclado e o controle (recomendado)", "shared",
+                                         "Também o desktop", "off", "Desligado", NULL };
+    row(p, "Toque do celular", "No exclusivo, nenhum dedo vira clique por fora (e o mouse pelo toque funciona)",
+        combo(s->app->cfg.remote_touch, sizeof s->app->cfg.remote_touch, modes));
+    static const char *const mice[] = { "auto", "Automático (recomendado)", "touchpad", "Sempre touchpad",
+                                        "direct", "Sempre toque direto", "off", "Desligado", NULL };
+    row(p, "Mouse pelo toque", "Os dedos fora do teclado e do controle, com o teclado aberto",
+        combo(s->app->cfg.remote_mouse, sizeof s->app->cfg.remote_mouse, mice));
+    row(p, "Velocidade do touchpad", NULL, scale(&s->app->cfg.remote_mouse_speed, 0.5, 4.0, 0.1));
+    note(p, "<b>Automático</b>\n"
+            "• Só o teclado aberto: <b>touchpad</b>. Arraste um dedo para mover o ponteiro; um toque rápido é o "
+            "clique esquerdo onde o ponteiro estiver; segure o dedo parado meio segundo e arraste para arrastar "
+            "com o botão apertado.\n"
+            "• Teclado e controle na tela juntos: <b>toque direto</b>. O ponteiro vai até o dedo e clica com o "
+            "botão esquerdo ali; arrastar arrasta.\n"
+            "• Nos dois: com um dedo na tela, um toque com outro dedo é o <b>clique direito</b>; dois dedos "
+            "juntos rolam a página.\n"
+            "• Só o controle na tela aberto: tocar fora dos controles não faz nada (no meio do jogo, um clique "
+            "perdido atrapalha).");
+    note(p, "<small>O teclado abre no monitor transmitido enquanto um celular estiver conectado. O monitor é o "
+            "do controle na tela (o Big Remote Play o escolhe; na linha de comando, <tt>--output</tt>).</small>");
+    return p;
+}
+
+/* ---- aparência do controle na tela ------------------------------------------ */
+
+/* id, rótulo, id, rótulo... NULL; o campo em BkCtlLook (deslocamento e tamanho) */
+static const char *const look_styles[] = { "classic", "Clássico (relevo cinza, OPENSTEP)", "modern",
+                                           "Moderno (vidro escuro)", "retro", "Retrô (16 bits, cores fortes)",
+                                           "neon", "Neon (contorno luminoso)", "minimal", "Minimalista (só o contorno)",
+                                           NULL };
+static const char *const look_buttons[] = { "xbox", "Xbox (A B X Y, LB RB, LT RT)", "playstation",
+                                            "PlayStation (✕ ○ □ △, L1 R1, L2 R2)", "nintendo",
+                                            "Nintendo (B A Y X, L R, ZL ZR)", NULL };
+static const char *const look_accents[] = { "blue",   "Azul",  "red",  "Vermelho", "green", "Verde", "purple",
+                                            "Roxo",   "orange", "Laranja", "gray", "Cinza", NULL };
+static const char *const look_sticks[] = { "fixed", "Fixo", "floating", "Flutuante (o centro vai aonde o dedo encosta)",
+                                           NULL };
+static const char *const look_dpads[] = { "cross", "Cruz", "buttons", "Quatro setas", "disc", "Disco", NULL };
+static const char *const look_anims[] = { "none", "Nenhuma",  "sink",   "Afundar",  "glow", "Brilho",
+                                          "ripple", "Onda", "bounce", "Encolher", NULL };
+
+static char *
+look_field(BkCtlLook *k, int i, size_t *len)
+{
+    char *f[6] = { k->style, k->buttons, k->accent, k->stick, k->dpad, k->anim };
+    size_t n[6] = { sizeof k->style, sizeof k->buttons, sizeof k->accent, sizeof k->stick, sizeof k->dpad,
+                    sizeof k->anim };
+    *len = n[i];
+    return f[i];
+}
+
+static void
+look_refresh(Settings *s)
+{
+    if (!s->look[0])
+        return;
+    BkCtlLayout l;
+    current_layout(s, &l);
+    s->updating = TRUE;
+    for (int i = 0; i < 6; i++) {
+        size_t len = 0;
+        gtk_combo_box_set_active_id(GTK_COMBO_BOX(s->look[i]), look_field(&l.look, i, &len));
+    }
+    s->updating = FALSE;
+    gtk_widget_queue_draw(s->preview);
+}
+
+static void
+on_look_changed(GtkComboBox *c, gpointer data)
+{
+    Settings *s = data;
+    const char *id = gtk_combo_box_get_active_id(c);
+    if (s->updating || !id)
+        return;
+    BkCtlLayout l;
+    current_layout(s, &l);
+    for (int i = 0; i < 6; i++)
+        if (GTK_WIDGET(c) == s->look[i]) {
+            size_t len = 0;
+            char *field = look_field(&l.look, i, &len);
+            g_strlcpy(field, id, len);
+        }
+    g_strlcpy(l.name, s->app->cfg.overlay_layout, sizeof l.name);
+    char *path = bk_ctl_path(l.name);
+    GError *err = NULL;
+    if (!bk_ctl_save(&l, path, &err)) {
+        g_warning("layout: %s", err->message);
+        g_clear_error(&err);
+    }
+    g_free(path);
+    gtk_widget_queue_draw(s->preview);
+    bk_overlay_reload(s->app->overlay);
+}
+
+/* Prévia 16:9 com o mesmo desenho do controle: o analógico esquerdo
+ * inclinado, o direcional para cima e o botão de baixo apertados. */
+static gboolean
+on_preview_draw(GtkWidget *w, cairo_t *cr, gpointer data)
+{
+    Settings *s = data;
+    double W = gtk_widget_get_allocated_width(w), H = gtk_widget_get_allocated_height(w);
+    cairo_pattern_t *g = cairo_pattern_create_linear(0, 0, W, H);
+    cairo_pattern_add_color_stop_rgb(g, 0, 0.18, 0.24, 0.32);
+    cairo_pattern_add_color_stop_rgb(g, 1, 0.33, 0.27, 0.22);
+    cairo_set_source(cr, g);
+    cairo_paint(cr);
+    cairo_pattern_destroy(g);
+    /* uma tela 1920×1080 reduzida: as proporções (e o mínimo de 44 px do
+     * botão do teclado) ficam como no monitor */
+    cairo_scale(cr, W / 1920.0, H / 1080.0);
+    W = 1920;
+    H = 1080;
+    BkCtlLayout l;
+    current_layout(s, &l);
+    BkCtlState st;
+    bk_ctl_state_init(&st);
+    int t = 0;
+    for (int i = 0; i < l.n && t < 3; i++) {
+        const BkCtl *c = &l.c[i];
+        double r = bk_ctl_px(&l, c, H) / 2;
+        double dx = 0, dy = 0;
+        if (c->kind == BKC_STICK && c->code == 0)
+            dx = r * 0.55, dy = -r * 0.35;
+        else if (c->kind == BKC_DPAD)
+            dy = -r * 0.7;
+        else if (!(c->kind == BKC_BUTTON && c->code == BTN_SOUTH))
+            continue;
+        st.used[t] = true;
+        st.ctl[t] = i;
+        st.ox[t] = c->x * W;
+        st.oy[t] = c->y * H;
+        st.px[t] = st.ox[t] + dx;
+        st.py[t] = st.oy[t] + dy;
+        t++;
+    }
+    bk_ctl_paint_layout(cr, &l, &st, W, H);
+    return TRUE;
+}
+
+static void
+on_from_template(GtkButton *b, gpointer data)
+{
+    (void)b;
+    Settings *s = data;
+    const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(s->templates));
+    BkCtlLayout l;
+    if (!id || !bk_ctl_template(&l, id))
+        return;
+    char *name = ask_name(s, "Novo layout a partir do modelo", l.name);
+    if (!name)
+        return;
+    g_strlcpy(l.name, name, sizeof l.name);
+    l.scale = s->app->cfg.overlay_scale;
+    char *path = bk_ctl_path(name);
+    if (g_file_test(path, G_FILE_TEST_EXISTS)) { /* nunca sobrescreve um layout do usuário */
+        GtkWidget *m = gtk_message_dialog_new(GTK_WINDOW(s->win), GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, GTK_BUTTONS_OK,
+                                              "Já existe um layout chamado “%s”. Escolha outro nome.", name);
+        gtk_dialog_run(GTK_DIALOG(m));
+        gtk_widget_destroy(m);
+    } else if (bk_ctl_save(&l, path, NULL)) {
+        g_strlcpy(s->app->cfg.overlay_layout, name, sizeof s->app->cfg.overlay_layout);
+        save(s);
+        fill_layouts(s);
+        look_refresh(s);
+        bk_overlay_reload(s->app->overlay);
+    }
+    g_free(path);
+    g_free(name);
+}
+
+static void
+on_template_changed(GtkComboBox *c, gpointer data)
+{
+    (void)data;
+    const char *id = gtk_combo_box_get_active_id(c);
+    for (const BkCtlTemplate *t = bk_ctl_templates(); id && t->id; t++)
+        if (!strcmp(t->id, id))
+            gtk_widget_set_tooltip_text(GTK_WIDGET(c), t->description);
+}
+
 static GtkWidget *
 page_overlay(Settings *s)
 {
@@ -586,6 +824,36 @@ page_overlay(Settings *s)
     fill_layouts(s);
     g_signal_connect(s->layouts, "changed", G_CALLBACK(on_layout_changed), s);
     row(p, "Layout", NULL, s->layouts);
+    s->templates = gtk_combo_box_text_new();
+    for (const BkCtlTemplate *t = bk_ctl_templates(); t->id; t++)
+        gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(s->templates), t->id, t->name);
+    g_signal_connect(s->templates, "changed", G_CALLBACK(on_template_changed), s);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(s->templates), 0);
+    GtkWidget *th = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_box_pack_start(GTK_BOX(th), s->templates, FALSE, FALSE, 0);
+    GtkWidget *tb = gtk_button_new_with_mnemonic("_Criar layout");
+    g_signal_connect(tb, "clicked", G_CALLBACK(on_from_template), s);
+    gtk_box_pack_start(GTK_BOX(th), tb, FALSE, FALSE, 0);
+    row(p, "Novo a partir de um modelo", "Xbox, PlayStation, Nintendo Switch, retrô, arcade, corrida ou mínimo: "
+        "posições e aparência prontas, num layout novo", th);
+    s->preview = gtk_drawing_area_new();
+    gtk_widget_set_size_request(s->preview, 448, 252);
+    gtk_widget_set_halign(s->preview, GTK_ALIGN_START);
+    g_signal_connect(s->preview, "draw", G_CALLBACK(on_preview_draw), s);
+    gtk_box_pack_start(GTK_BOX(p), s->preview, FALSE, FALSE, 0);
+    const char *const *lists[6] = { look_styles, look_buttons, look_accents, look_sticks, look_dpads, look_anims };
+    const char *titles[6] = { "Estilo", "Botões", "Cor de destaque", "Analógico", "Direcional", "Animação ao tocar" };
+    const char *tips[6] = { NULL, "Só os nomes e as cores mudam: o jogo vê os mesmos botões nas mesmas posições", NULL,
+                            NULL, NULL, NULL };
+    for (int i = 0; i < 6; i++) {
+        s->look[i] = gtk_combo_box_text_new();
+        for (int j = 0; lists[i][j]; j += 2)
+            gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(s->look[i]), lists[i][j], lists[i][j + 1]);
+        g_signal_connect(s->look[i], "changed", G_CALLBACK(on_look_changed), s);
+        gtk_widget_set_halign(s->look[i], GTK_ALIGN_START);
+        row(p, titles[i], tips[i], s->look[i]);
+    }
+    look_refresh(s);
     row(p, "Opacidade (novos layouts)", NULL, scale(&s->app->cfg.overlay_opacity, 0.15, 1.0, 0.05));
     row(p, "Escala dos controles", NULL, scale(&s->app->cfg.overlay_scale, 0.5, 2.0, 0.05));
     GtkWidget *h = hbox(p);
@@ -762,6 +1030,8 @@ on_destroy(GtkWidget *w, gpointer data)
 {
     (void)w;
     Settings *s = data;
+    if (s->remote_state_id)
+        g_signal_handler_disconnect(s->app->gtk, s->remote_state_id);
     s->app->settings = NULL;
     if (S == s)
         S = NULL;
@@ -794,6 +1064,7 @@ bk_settings_show(BkApp *app, const char *pagename)
         GtkWidget *(*build)(Settings *);
     } pages[] = { { "general", "Geral", page_general },     { "keyboard", "Teclado", page_keyboard },
                   { "gamepad", "Controle físico", page_pad }, { "overlay", "Controle na tela", page_overlay },
+                  { "remote", "Celular", page_remote },
                   { "games", "Jogos", page_games },         { "xcloud", "Xbox Cloud Gaming", page_xcloud },
                   { "lock", "Tela de bloqueio", page_lock }, { "advanced", "Avançado", page_advanced } };
     for (size_t i = 0; i < G_N_ELEMENTS(pages); i++) {

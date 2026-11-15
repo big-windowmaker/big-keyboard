@@ -47,6 +47,11 @@ typedef struct {
      * desktop, onde o compositor aceita toque) */
     char remote_touch[12];
     char overlay_output[32]; /* conector do monitor (DP-1); vazio: o principal */
+    /* mouse pelo toque do celular, nos dedos fora do teclado e do controle:
+     * auto (touchpad só com o teclado; direto com teclado e controle),
+     * touchpad, direct, off */
+    char remote_mouse[12];
+    double remote_mouse_speed; /* touchpad: 0.5..4 */
     /* [Mouse] (teclado e mouse como controle) */
     double mouse_sens_x, mouse_sens_y; /* 0.1..10 */
     gboolean invert_y;
