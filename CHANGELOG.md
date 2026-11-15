@@ -2,6 +2,12 @@
 
 ## Não lançado
 
+- **Botão Guia no controle na tela** (o do logo: Xbox, PS, Home): no alto
+  ao centro, logo abaixo do botão do teclado e entre Select e Start, em
+  todos os modelos. Desenhado em vetor conforme a família dos botões (esfera
+  com X, "PS" ou a casinha do Home), com um halo na cor de destaque. Os
+  layouts já salvos o ganham ao abrir (desligado, para ligar e mover no
+  editor, se algo do layout estiver no lugar dele).
 - **Celular como mouse e teclado**: o touchscreen do Sunshine é lido com o
   teclado aberto também (antes, só com o controle na tela). Cada dedo vai
   para o que está embaixo dele: as teclas (a barra de título move a

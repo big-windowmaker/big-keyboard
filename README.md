@@ -161,7 +161,7 @@ fecha um controle já aberto (ver [Permissões](#permissões-o-devuinput)).
   <img src="docs/screenshots/controle-na-tela.png" width="100%"
        alt="Controle na tela semitransparente sobre a área de trabalho do Window Maker">
   <br><sub>Controle na tela no X11, com um compositor (picom): analógicos L e R, direcional, A B X Y,
-  LB/RB, LT/RT, L3/R3, Select e Start. Sem compositor no X11, o fundo fica preto.</sub>
+  LB/RB, LT/RT, L3/R3, Select, Start e o botão Guia (Xbox, PS, Home) ao centro. Sem compositor no X11, o fundo fica preto.</sub>
 </p>
 
 Ao abrir o controle na tela, o programa cria um gamepad virtual pelo uinput, que o SDL, o Steam/Proton, o

@@ -29,7 +29,8 @@ bk_ctl_default(BkCtlLayout *l)
     l->scale = 1.0;
     bk_ctl_look_default(&l->look);
     /* como num controle: analógico e direcional à esquerda, botões e o
-     * analógico direito à direita, ombros em cima, Start/Select no meio */
+     * analógico direito à direita, ombros em cima, Start/Select no meio e o
+     * botão Guia (Xbox, PS, Home) entre eles, abaixo do botão do teclado */
     const BkCtl def[] = {
         { BKC_STICK, 0, 0.13, 0.62, 0.30, 0.15, 1.0, true },
         { BKC_DPAD, 0, 0.26, 0.84, 0.22, 0.30, 1.0, true },
@@ -40,6 +41,7 @@ bk_ctl_default(BkCtlLayout *l)
         { BKC_TRIGGER, 0, 0.08, 0.08, 0.10, 0, 1, true },
         { BKC_TRIGGER, 1, 0.92, 0.08, 0.10, 0, 1, true },
         B(BTN_SELECT, 0.43, 0.10, 0.08), B(BTN_START, 0.57, 0.10, 0.08),
+        B(BTN_MODE, BKC_GUIDE_X, BKC_GUIDE_Y, BKC_GUIDE_SIZE),
         B(BTN_THUMBL, 0.20, 0.42, 0.07), B(BTN_THUMBR, 0.66, 0.66, 0.07),
     };
     l->n = (int)G_N_ELEMENTS(def);
@@ -489,7 +491,6 @@ bk_ctl_template(BkCtlLayout *l, const char *id)
         put(&t, BKC_TRIGGER, 1, 0.92, 0.10, 0.10, 0);
         put(&t, BKC_BUTTON, BTN_SELECT, 0.40, 0.12, 0.08, 0);
         put(&t, BKC_BUTTON, BTN_START, 0.60, 0.12, 0.08, 0);
-        put(&t, BKC_BUTTON, BTN_MODE, 0.58, 0.28, 0.07, 0);
         look(&t, "modern", "nintendo", "red", "fixed", "disc", "bounce");
     } else if (!strcmp(id, "retro")) {
         put(&t, BKC_DPAD, 0, 0.17, 0.62, 0.32, 0.25);
@@ -530,6 +531,12 @@ bk_ctl_template(BkCtlLayout *l, const char *id)
     } else {
         return false;
     }
+    /* o botão Guia em todos, no mesmo lugar (o padrão e o Xbox já o têm) */
+    bool has_guide = false;
+    for (int i = 0; i < t.n; i++)
+        has_guide |= t.c[i].kind == BKC_BUTTON && t.c[i].code == BTN_MODE;
+    if (!has_guide)
+        put(&t, BKC_BUTTON, BTN_MODE, BKC_GUIDE_X, BKC_GUIDE_Y, BKC_GUIDE_SIZE, 0);
     for (const BkCtlTemplate *m = templates; m->id; m++)
         if (!strcmp(m->id, id))
             g_strlcpy(t.name, m->name, sizeof t.name);
@@ -557,7 +564,8 @@ gboolean
 bk_ctl_save(const BkCtlLayout *l, const char *path, GError **err)
 {
     GKeyFile *k = g_key_file_new();
-    g_key_file_set_integer(k, "Layout", "Version", 1);
+    /* 2: o botão Guia faz parte do layout (um layout 1 o ganha ao ser lido) */
+    g_key_file_set_integer(k, "Layout", "Version", 2);
     g_key_file_set_string(k, "Layout", "Name", l->name);
     g_key_file_set_double(k, "Layout", "Opacity", l->opacity);
     g_key_file_set_double(k, "Layout", "Scale", l->scale);
@@ -603,6 +611,28 @@ static double
 clampd(double v, double lo, double hi)
 {
     return isnan(v) ? lo : v < lo ? lo : v > hi ? hi : v;
+}
+
+/* Layout de antes do botão Guia: ele entra no lugar de sempre; se algo do
+ * layout estiver lá, entra desligado (aparece apagado no editor, para ligar
+ * e mover), sem cobrir nada. */
+static void
+add_guide(BkCtlLayout *l)
+{
+    if (l->n >= BKC_MAX)
+        return;
+    for (int i = 0; i < l->n; i++)
+        if (l->c[i].kind == BKC_BUTTON && l->c[i].code == BTN_MODE)
+            return;
+    BkCtl g = B(BTN_MODE, BKC_GUIDE_X, BKC_GUIDE_Y, BKC_GUIDE_SIZE);
+    /* numa tela 16:9 (a mais comum); os tamanhos são frações da altura */
+    const double w = 16.0 / 9;
+    for (int i = 0; i < l->n; i++) {
+        const BkCtl *c = &l->c[i];
+        if (c->enabled && hypot((c->x - g.x) * w, c->y - g.y) < (c->size + g.size) * l->scale / 2)
+            g.enabled = false;
+    }
+    l->c[l->n++] = g;
 }
 
 gboolean
@@ -664,11 +694,14 @@ bk_ctl_load(BkCtlLayout *l, const char *path, GError **err)
         }
     }
     g_strfreev(groups);
+    int version = g_key_file_get_integer(k, "Layout", "Version", NULL);
     g_key_file_free(k);
     if (tmp.n == 0) {
         g_set_error(err, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_INVALID_VALUE, "nenhum controle no layout");
         return FALSE;
     }
+    if (version < 2)
+        add_guide(&tmp);
     *l = tmp;
     return TRUE;
 }

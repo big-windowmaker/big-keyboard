@@ -188,6 +188,10 @@ main(void)
         for (const BkCtlTemplate *t = bk_ctl_templates(); t->id; t++, nt++) {
             BkCtlLayout x;
             CHECK(bk_ctl_template(&x, t->id) && x.n > 0 && x.name[0], "modelo %s", t->id);
+            int guides = 0;
+            for (int i = 0; i < x.n; i++)
+                guides += x.c[i].kind == BKC_BUTTON && x.c[i].code == BTN_MODE && x.c[i].enabled;
+            CHECK(guides == 1, "%s: um botão Guia (%d)", t->id, guides);
             const double rs[] = { 4.0 / 3, 16.0 / 9 };
             for (size_t ri = 0; ri < G_N_ELEMENTS(rs); ri++) {
                 double h = 1080, w = h * rs[ri], cx, cy, rr;
@@ -209,7 +213,38 @@ main(void)
             }
         }
         CHECK(nt >= 7, "sete modelos: %d", nt);
+    }
+    /* botão Guia: no padrão, e um layout antigo (Version 1 ou sem Version) o
+     * ganha ao ser lido; desligado se algo do layout estiver no lugar dele.
+     * Um layout novo (Version 2) sem ele fica sem (foi tirado de propósito). */
+    {
         BkCtlLayout x;
+        bk_ctl_default(&x);
+        int g = -1;
+        for (int i = 0; i < x.n; i++)
+            if (x.c[i].kind == BKC_BUTTON && x.c[i].code == BTN_MODE)
+                g = i;
+        CHECK(g >= 0 && fabs(x.c[g].x - 0.5) < 1e-9, "Guia no padrão, ao centro");
+        CHECK(!strcmp(bk_ctl_label_for(&x, &x.c[g]), "◉"), "rótulo do Guia (xbox)");
+        char *dir3 = g_dir_make_tmp("bkctl-XXXXXX", NULL), *f3 = g_build_filename(dir3, "g.ini", NULL);
+        BkCtlLayout b;
+        g_file_set_contents(f3, "[Layout]\nName=v\nScale=1\n[Control 00]\nKind=button\nCode=304\n"
+                                "X=0.88\nY=0.7\nSize=0.1\n", -1, NULL);
+        CHECK(bk_ctl_load(&b, f3, NULL) && b.n == 2 && b.c[1].code == BTN_MODE && b.c[1].enabled,
+              "layout antigo ganha o Guia (%d)", b.n);
+        g_file_set_contents(f3, "[Layout]\nName=v\nVersion=1\nScale=1\n[Control 00]\nKind=button\nCode=304\n"
+                                "X=0.5\nY=0.2\nSize=0.1\n", -1, NULL);
+        CHECK(bk_ctl_load(&b, f3, NULL) && b.n == 2 && b.c[1].code == BTN_MODE && !b.c[1].enabled,
+              "Guia desligado onde já há um controle");
+        g_file_set_contents(f3, "[Layout]\nName=v\nVersion=2\nScale=1\n[Control 00]\nKind=button\nCode=304\n"
+                                "X=0.88\nY=0.7\nSize=0.1\n", -1, NULL);
+        CHECK(bk_ctl_load(&b, f3, NULL) && b.n == 1, "layout novo sem Guia fica sem");
+        bk_ctl_default(&x);
+        CHECK(bk_ctl_save(&x, f3, NULL) && bk_ctl_load(&b, f3, NULL) && b.n == x.n, "Guia não duplica ao regravar");
+        g_remove(f3);
+        g_rmdir(dir3);
+        g_free(f3);
+        g_free(dir3);
         CHECK(!bk_ctl_template(&x, "nao-existe"), "modelo desconhecido recusado");
     }
     if (!fails)

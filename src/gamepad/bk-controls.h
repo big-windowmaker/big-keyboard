@@ -28,6 +28,12 @@ typedef struct {
 } BkCtl;
 
 #define BKC_MAX 32
+
+/* O botão Guia (Xbox, PS, Home): no alto ao centro, logo abaixo do botão do
+ * teclado e entre Select e Start, um pouco maior que eles. */
+#define BKC_GUIDE_X 0.50
+#define BKC_GUIDE_Y 0.19
+#define BKC_GUIDE_SIZE 0.09
 #define BKC_TOUCHES 16
 
 /* Aparência, gravada com o layout (um layout "PlayStation" já vem com

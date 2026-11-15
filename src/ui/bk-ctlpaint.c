@@ -17,6 +17,7 @@
  */
 #include "bk-app.h"
 
+#include <linux/input-event-codes.h>
 #include <math.h>
 #include <string.h>
 
@@ -175,6 +176,52 @@ label_on(cairo_t *cr, const Look *k, const char *t, double cx, double cy, double
     text_at(cr, t, cx, cy, fs, k->retro, c[0], c[1], c[2], MIN(1, a + 0.4));
 }
 
+/* O símbolo do botão Guia, em vetor (fontes variam; ◉ e ⌂ nem sempre
+ * existem): Xbox, uma esfera cortada por um X curvo; PlayStation, "PS";
+ * Nintendo, a casinha do botão Home. */
+static void
+guide_glyph(cairo_t *cr, const Look *k, double cx, double cy, double r, double a)
+{
+    double c[3];
+    ink(k, NULL, c);
+    a = MIN(1, a + 0.4);
+    const char *f = k->l->look.buttons;
+    cairo_save(cr);
+    cairo_new_path(cr);
+    cairo_set_source_rgba(cr, c[0], c[1], c[2], a);
+    if (!strcmp(f, "playstation")) {
+        text_at(cr, "PS", cx, cy, MAX(11, r * 0.78), k->retro, c[0], c[1], c[2], a);
+    } else if (!strcmp(f, "nintendo")) {
+        double s = r * 0.52;
+        cairo_move_to(cr, cx, cy - s);              /* cumeeira */
+        cairo_line_to(cr, cx + s, cy - s * 0.05);   /* beiral direito */
+        cairo_line_to(cr, cx + s * 0.68, cy - s * 0.05);
+        cairo_line_to(cr, cx + s * 0.68, cy + s * 0.85);
+        cairo_line_to(cr, cx - s * 0.68, cy + s * 0.85);
+        cairo_line_to(cr, cx - s * 0.68, cy - s * 0.05);
+        cairo_line_to(cr, cx - s, cy - s * 0.05);
+        cairo_close_path(cr);
+        cairo_rectangle(cr, cx - s * 0.2, cy + s * 0.85, s * 0.4, -s * 0.5); /* porta (vazada) */
+        cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+        cairo_fill(cr);
+    } else {
+        double s = r * 0.56;
+        cairo_set_line_width(cr, MAX(1.5, r * 0.11));
+        cairo_arc(cr, cx, cy, s, 0, 2 * M_PI);
+        cairo_stroke(cr);
+        /* o X: dois traços que se curvam para dentro, de borda a borda */
+        cairo_set_line_width(cr, MAX(1.5, r * 0.15));
+        cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+        double e = s * 0.70, m = s * 0.18;
+        cairo_move_to(cr, cx - e, cy - e);
+        cairo_curve_to(cr, cx - m, cy - m * 0.2, cx + m, cy + m * 0.2, cx + e, cy + e);
+        cairo_move_to(cr, cx + e, cy - e);
+        cairo_curve_to(cr, cx + m, cy - m * 0.2, cx - m, cy + m * 0.2, cx - e, cy + e);
+        cairo_stroke(cr);
+    }
+    cairo_restore(cr);
+}
+
 static void
 triangle(cairo_t *cr, double cx, double cy, double s, int dx, int dy)
 {
@@ -302,6 +349,13 @@ bk_ctl_paint(cairo_t *cr, const BkCtlLayout *l, const BkCtlState *s, double w, d
         if (anim(&k, "none"))
             hx = hy = 0;
         draw_dpad(cr, &k, cx, cy, r, hx, hy, a);
+    } else if (c->code == BTN_MODE) {
+        /* aceso como num controle de verdade: um halo na cor de destaque */
+        if (!k.classic && !k.retro && !(held && anim(&k, "glow")))
+            glow(cr, cx, cy, r * 1.04, k.accent, a * 0.45);
+        face(cr, &k, cx, cy, r, down, k.modern ? k.accent : NULL, a);
+        double gy = cy + (k.retro && down ? r * 0.14 : 0) + (k.classic && down ? 1 : 0);
+        guide_glyph(cr, &k, cx, gy, r, a);
     } else {
         face(cr, &k, cx, cy, r, down, has_brand ? brand : NULL, a);
         double ly = cy + (k.retro && down ? r * 0.14 : 0) + (k.classic && down ? 1 : 0);
