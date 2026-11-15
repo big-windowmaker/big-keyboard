@@ -348,8 +348,8 @@ espelho `pkgbuild/big-keyboard/` (e `pkgbuild/src/`); senão o makepkg para com 
 | Tipo | Pacotes |
 |---|---|
 | Depende de | glib2, gtk3, at-spi2-core, cairo, pango, libx11, libxtst, libxkbcommon, wayland, gtk-layer-shell, systemd-libs (libudev), hicolor-icon-theme |
-| Opcionais | steam-devices ou game-devices-udev (`/dev/uinput`), big-wm-lockscreen, big-wm-session (`big-wm-lock-settings`), picom (transparência no X11) |
-| Para compilar | git, meson |
+| Opcionais | steam-devices ou game-devices-udev (`/dev/uinput`), big-wm-lockscreen, big-wm-session (menu Dockapps e `big-wm-lock-settings`), xorg-xwayland (o dockapp no wlmaker), picom (transparência no X11) |
+| Para compilar | git, meson, wayland-protocols |
 
 Compilar e testar sem instalar:
 
