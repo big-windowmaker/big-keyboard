@@ -254,6 +254,16 @@ page_general(Settings *s)
 
 /* ---- Teclado -------------------------------------------------------------- */
 
+static void
+on_restore_place(GtkButton *b, gpointer data)
+{
+    (void)b;
+    Settings *s = data;
+    s->app->cfg.float_x = s->app->cfg.float_y = -1;
+    s->app->cfg.float_width = 0;
+    save(s);
+}
+
 static GtkWidget *
 page_keyboard(Settings *s)
 {
@@ -263,12 +273,31 @@ page_keyboard(Settings *s)
     static const char *const layouts[] = { "auto", "O do sistema", "br", "Português (ABNT2)", "us", "Inglês (US)",
                                            "us-intl", "Inglês (US internacional)", NULL };
     row(p, "Layout", NULL, combo(s->app->cfg.layout, sizeof s->app->cfg.layout, layouts));
-    row(p, "Reservar o espaço do teclado", "As janelas sobem para o teclado não cobrir o campo de texto",
+    static const char *const wmodes[] = { "floating", "Janela flutuante, com moldura (mover e redimensionar)",
+                                          "docked", "Encaixado embaixo, na largura da tela (como no celular)", NULL };
+    row(p, "Janela", "Flutuante: arraste pelo título e redimensione pela borda de baixo; o lugar e o tamanho "
+                     "ficam gravados. Encaixado: ocupa a parte de baixo da tela inteira.",
+        combo(s->app->cfg.window_mode, sizeof s->app->cfg.window_mode, wmodes));
+    static const char *const stackings[] = { "normal", "Como as outras janelas", "above",
+                                             "Por cima das janelas (recomendado)", "fullscreen",
+                                             "Por cima de tudo, até de jogos, vídeos e apresentações em tela cheia",
+                                             NULL };
+    row(p, "Ficar por cima", "No Wayland o teclado sempre fica por cima das janelas comuns",
+        combo(s->app->cfg.stacking, sizeof s->app->cfg.stacking, stackings));
+    row(p, "Abrir ao tocar num campo de texto", "Como no celular: o teclado aparece quando um campo onde se "
+                                                "digita ganha o foco (pela acessibilidade, AT-SPI)",
+        sw(&s->app->cfg.auto_show));
+    row(p, "Fechar ao sair do campo de texto", "Só quando ele abriu sozinho", sw(&s->app->cfg.auto_hide));
+    row(p, "Reservar o espaço do teclado", "Encaixado: as janelas sobem para o teclado não cobrir o campo de texto",
         sw(&s->app->cfg.reserve));
     row(p, "Fechar depois do Enter", NULL, sw(&s->app->cfg.autohide));
     row(p, "Atraso da repetição (ms)", "Segurar uma tecla repete depois deste tempo",
         spin(&s->app->cfg.repeat_delay, 150, 2000, 50));
     row(p, "Intervalo da repetição (ms)", NULL, spin(&s->app->cfg.repeat_rate, 20, 500, 10));
+    button(hbox(p), "_Restaurar o lugar e o tamanho da janela", G_CALLBACK(on_restore_place), s);
+    note(p, "<small>Aplicativos que expõem a acessibilidade (GTK, Qt, Firefox, Chromium, LibreOffice) avisam "
+            "quando um campo de texto ganha o foco. O tamanho das teclas (em Geral) volta a valer ao ser "
+            "mudado.</small>");
     return p;
 }
 

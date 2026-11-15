@@ -41,11 +41,40 @@ main(void)
     g_file_set_contents(f, "[General]\nVersion=1\nDisplayMode=caos\n", -1, NULL);
     bk_config_load(&d, f);
     CHECK(!strcmp(d.display_mode, "independent"), "modo inválido vira o padrão");
+    /* janela do teclado: padrões, leitura, limites e valores recusados */
+    bk_config_defaults(&d);
+    CHECK(!strcmp(d.window_mode, "floating") && !strcmp(d.stacking, "above") && !d.auto_show && d.auto_hide &&
+              d.float_x == -1 && d.float_width == 0,
+          "janela: padrões");
+    g_file_set_contents(f, "[General]\nVersion=1\n[Keyboard]\nWindowMode=docked\nStacking=fullscreen\n"
+                           "ShowOnTextFocus=true\nHideOnFocusLoss=false\nFloatX=120\nFloatY=-50\nFloatWidth=900\n",
+                        -1, NULL);
+    bk_config_load(&d, f);
+    CHECK(!strcmp(d.window_mode, "docked") && !strcmp(d.stacking, "fullscreen") && d.auto_show && !d.auto_hide &&
+              d.float_x == 120 && d.float_y == -1 && d.float_width == 900,
+          "janela: lida e limitada (%s %s %d %d %d)", d.window_mode, d.stacking, d.float_x, d.float_y,
+          d.float_width);
+    CHECK(bk_config_save(&d, f, NULL), "janela: gravar");
+    BkConfig e;
+    bk_config_load(&e, f);
+    CHECK(!strcmp(e.window_mode, "docked") && e.float_width == 900 && e.auto_show, "janela: ida e volta");
+    g_file_set_contents(f, "[General]\nVersion=1\n[Keyboard]\nWindowMode=solto\nStacking=sempre\n", -1, NULL);
+    bk_config_load(&d, f);
+    CHECK(!strcmp(d.window_mode, "floating") && !strcmp(d.stacking, "above"), "janela: valores inválidos recusados");
     /* migração: versão antiga deixa uma cópia .bak */
     g_file_set_contents(f, "[Keyboard]\nLayout=br\n", -1, NULL);
     bk_config_load(&d, f);
     char *bak = g_strdup_printf("%s.bak", f);
     CHECK(g_file_test(bak, G_FILE_TEST_EXISTS) && !strcmp(d.layout, "br"), "migração com .bak");
+    /* toque remoto e monitor: valores aceitos, o resto vira o padrão */
+    g_file_set_contents(f, "[General]\nVersion=1\n[VirtualGamepad]\nRemoteTouch=shared\nOutput=DP-1\n", -1, NULL);
+    bk_config_load(&d, f);
+    CHECK(!strcmp(d.remote_touch, "shared") && !strcmp(d.overlay_output, "DP-1"), "toque remoto e monitor lidos");
+    g_file_set_contents(f, "[General]\nVersion=1\n[VirtualGamepad]\nRemoteTouch=root\nOutput=../etc;rm\n", -1, NULL);
+    bk_config_load(&d, f);
+    CHECK(!strcmp(d.remote_touch, "exclusive") && !d.overlay_output[0], "valores estranhos recusados");
+    CHECK(bk_config_valid_output("HDMI-A-1") && bk_config_valid_output("") && !bk_config_valid_output("a b"),
+          "nomes de conector");
     /* arquivo ilegível: guardado como .invalid, padrões */
     g_file_set_contents(f, "isto não é um keyfile\x01[[[", -1, NULL);
     bk_config_load(&d, f);

@@ -24,10 +24,12 @@
 | `src/core/bk-geom.c` | retângulos das teclas; toque; modo apontar dos analógicos |
 | `src/core/bk-config.c` | preferências versionadas, validadas, gravação atômica |
 | `src/input/big-wm-gamepad.c` | controles físicos (udev, evdev, conexão a quente, repetição, navegação espacial) |
+| `src/input/bk-rtouch.c` | toque remoto: o touchscreen virtual do Sunshine (protocolo B, SYN_DROPPED, udev) |
 | `src/input/bk-inject.c` | entrega das teclas: virtual-keyboard (Wayland) e XTest (X11) |
 | `src/gamepad/bk-vpad.c` | controle virtual uinput |
 | `src/gamepad/bk-controls.c` | controle na tela: layout, toques, gravação |
 | `src/ui/` | aplicativo (ações D-Bus), teclado, sobreposição/editor, configurações |
+| `src/ui/bk-focus.c` | campo de texto em foco pela acessibilidade (AT-SPI): abrir o teclado como no celular |
 | `src/dockapp/` | dockapp X11 (Window Maker; wlmaker pelo XWayland) |
 
 O núcleo (`core`, `input/big-wm-gamepad`, `gamepad`) não depende de X11 nem
@@ -46,11 +48,39 @@ Wayland e tem testes próprios (`tests/`).
    - **X11**: XTest com a tecla do layout da sessão (Shift se preciso); um
      caractere fora do layout usa um keycode livre remapeado (rodízio de 4,
      devolvidos ao sair).
-3. A janela nunca pega o foco: layer-shell `keyboard-interactivity none` no
-   Wayland; tipo DOCK sem foco no X11. Reservar espaço: zona exclusiva do
-   layer-shell / `_NET_WM_STRUT_PARTIAL`.
+3. A janela nunca pega o foco (veja [Janela do teclado](#janela-do-teclado)).
 4. O dockapp fala com o aplicativo pelas ações `org.gtk.Actions`
    (`toggle`, `settings`, `gamepad`, `hybrid`, `release`, `quit`) e segue os
+   estados `mode` e `pad-connected`. O Big Remote Play usa `set-gamepad`,
+   `remote-touch`, `overlay-output`, `release` e o estado
+   `remote-touch-status`.
+
+## Toque remoto (celular → Moonlight → Sunshine)
+
+```text
+celular (dedos) → Moonlight (LiSendTouchEvent) → Sunshine (libvirtualhid)
+  → touchscreen uinput "libvirtualhid Touchscreen" (0..19200 × 0..10800,
+    normalizado à imagem do monitor transmitido)
+  → bk-rtouch (leitura direta, EVIOCGRAB no modo exclusivo)
+  → bk_ctl_touch (um toque por slot) → bk-vpad (gamepad uinput) → jogo
+```
+
+- **Sem o compositor**: o wlmaker não entrega toques (o dispositivo de
+  toque é ignorado); no X11/KDE o toque viraria clique fora dos controles.
+  Ler o nó direto funciona igual em todos. Só enquanto o controle está
+  visível; fechado, o dispositivo volta ao desktop.
+- **Coordenadas**: o Moonlight normaliza o toque à área do vídeo (sem as
+  barras pretas do celular); o Sunshine põe isso nos eixos do dispositivo;
+  aqui `px = x / 19200 × largura do monitor`. Vale para qualquer proporção,
+  rotação ou escala fracionária, desde que o controle esteja no monitor
+  transmitido (`overlay-output`).
+- **Nada preso**: o dispositivo sumir solta tudo; `SYN_DROPPED` relê o
+  estado (`EVIOCGMTSLOTS`). O Sunshine 2026.914 mantém o touchscreen depois
+  que o cliente sai e não cancela os contatos ao desconectar; por isso o
+  Big Remote Play chama `release` quando a sessão cai, e um dedo solto à
+  força só volta a valer se o celular voltar a movê-lo.
+- **Vários Sunshine** (compartilhamento normal e a tela privada do Game
+  Window): todos os touchscreens remotos presentes são lidos.
    estados `mode` e `pad-connected`: o aplicativo é a única fonte do estado
    (fechar uma janela por fora também muda o desenho).
 
@@ -75,14 +105,66 @@ tamanho dos símbolos, contraste WCAG, estados); `bk-dockapp.c` é a cola.
   acesso ao `/dev/uinput`; a dica explica, e o clique só fecha).
 - **Dica**: uma janela `tooltip` do GTK, posicionada pelo ponteiro (no
   XWayland, a janela do dockapp fica em 0,0 na raiz X).
-- **Controle na tela no X11**: ele é uma janela de tela inteira com entrada
-  só nos botões; o Window Maker 26 (patch 0031 em big-windowmaker/packages)
-  passa esse recorte de entrada ao quadro. Sem ele, o quadro engolia os
-  cliques do Dock, dos dockapps e da área de trabalho.
+- **LEDs**: embaixo de cada botão, verde com a janela aberta, cinza fechada
+  (mais fraco quando o botão está desabilitado). O símbolo sobe para dar
+  lugar ao LED (`bk_dock_led_rect`).
+- **Menu Principal**: o `big-wm-appmenu` do big-wm o lista em Dockapps >
+  Ferramentas quando o pacote está instalado.
+
+## Janela do teclado
+
+| Modo | X11 | Wayland (layer-shell) |
+|---|---|---|
+| Flutuante | janela UTILITY com a moldura do gerenciador, `accept-focus` falso (WM_HINTS input=False); o tamanho vem do gerenciador e as teclas acompanham (dicas de proporção) | moldura desenhada (título com fechar, barra de redimensionar), âncora em cima à esquerda, margens = posição, zona exclusiva -1 |
+| Encaixado | tipo DOCK, largura do monitor, strut embaixo | âncoras embaixo e nas laterais, zona exclusiva = altura (reservar) |
+| Por cima de tela cheia | override-redirect com a moldura desenhada; volta ao topo quando `_NET_CLIENT_LIST_STACKING` ou `_NET_ACTIVE_WINDOW` mudam na raiz | camada OVERLAY em vez de TOP |
+
+- **Por que a moldura desenhada no Wayland**: uma janela xdg comum ganharia
+  o foco do teclado ao ser tocada, e o `zwp_virtual_keyboard_v1` entrega as
+  teclas a quem tem o foco: elas iriam para o próprio teclado.
+- **Medidas**: tudo sai da unidade `u` (largura de uma tecla comum). A
+  largura escolhida (ou a do tamanho das teclas) dá `u`; a altura vem da
+  proporção; o que sobra do arredondamento vai para a coluna. Encaixado:
+  `u` limitado a 42% da altura do monitor, e as teclas se esticam na
+  horizontal para preencher a largura.
+- **Mover no layer-shell**: o dedo só é conhecido em relação à própria
+  superfície, que anda debaixo dele. Cada posição nova só é pedida depois
+  que o compositor confirmou a anterior (`wl_display_sync` após o quadro),
+  e o dedo é lido em relação à posição já aplicada. O wlmaker antes do
+  patch 0152 parava de entregar o ponteiro quando ele saía da superfície
+  com o botão apertado; a 0152 dá aos painéis comuns a captura implícita
+  que as janelas têm em outros compositores.
+- **Lugar e tamanho**: `FloatX`, `FloatY` e `FloatWidth` em `[Keyboard]`,
+  gravados 0,7 s depois do último movimento. Mudar o tamanho das teclas
+  volta à largura padrão; "Restaurar o lugar e o tamanho" zera os três.
+- **Trocar de modo ou de "por cima"** refaz a janela (o layer-shell só é
+  configurado antes de mapear, e override-redirect é do tipo da janela), no
+  mesmo estado de visível ou oculta.
+- **Campo de texto (AT-SPI)**: `object:state-changed:focused` num objeto
+  editável e não somente leitura (ou um terminal) abre o teclado e o marca
+  como aberto sozinho; sair do campo fecha depois de 400 ms (passar de um
+  campo a outro tira e põe o foco), só se ele abriu sozinho. Ao ligar,
+  pede `org.a11y.Status.IsEnabled` (Firefox, Chromium e Qt só expõem a
+  acessibilidade assim). Antes de iniciar a libatspi, testa a conexão com o
+  barramento de acessibilidade: sem ele a biblioteca encerraria o processo.
+
+## Controle na tela no X11
+
+Ele é uma janela override-redirect de tela inteira com entrada só nos
+botões. Como janela DOCK "sempre acima" ficava atrás do jogo em tela cheia
+(Window Maker, KWin e xfwm4 põem a tela cheia acima das docas, como manda o
+EWMH); fora do gerenciador, ela volta ao topo quando
+`_NET_CLIENT_LIST_STACKING` ou `_NET_ACTIVE_WINDOW` mudam na raiz. Sem
+moldura, os toques fora dos botões vão direto para a janela de baixo. No
+Wayland, a camada OVERLAY fica acima da tela cheia; o wlmaker só passou a
+respeitar isso no pacote 38 (patch 0151 em big-windowmaker/packages).
 
 ## Segurança
 
-- Roda como o usuário; nenhuma regra udev própria. O `/dev/uinput` já é do
+- Roda como o usuário. Única regra udev própria
+  (`data/70-big-keyboard-remote-touch.rules`): `uaccess` só para o nó
+  virtual chamado exatamente `libvirtualhid Touchscreen` (o touchscreen do
+  Sunshine; a regra do Sunshine não o cobre). O `/dev/uinput` já é do
   usuário do assento ativo (`uaccess`) com o `steam-devices` ou o
   `game-devices-udev`; sem ele, só o controle virtual fica indisponível.
 - O leitor de controle aceita só dispositivos que o udev marca como joystick

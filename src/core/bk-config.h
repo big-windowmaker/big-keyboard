@@ -26,6 +26,12 @@ typedef struct {
     int repeat_delay;     /* ms, 150..2000 */
     int repeat_rate;      /* ms entre repetições, 20..500 */
     gboolean sound;       /* clique sonoro (desligado) */
+    char window_mode[12]; /* floating (janela com moldura, move e redimensiona), docked (embaixo, largura inteira) */
+    char stacking[12];    /* normal, above (por cima das janelas), fullscreen (por cima até de tela cheia) */
+    gboolean auto_show;   /* abrir ao focar um campo de texto (AT-SPI), como no celular */
+    gboolean auto_hide;   /* fechar ao sair do campo, se abriu sozinho */
+    int float_x, float_y; /* posição da janela flutuante (coordenadas da tela); -1: embaixo, ao centro */
+    int float_width;      /* largura da janela flutuante (px); 0: pelo tamanho das teclas */
     /* [Gamepad] */
     gboolean pad;         /* navegar com o controle físico */
     gboolean pad_combo;   /* Select+Start abre/fecha o teclado de qualquer lugar */
@@ -36,6 +42,11 @@ typedef struct {
     double overlay_opacity; /* 0.15..1.0 */
     double overlay_scale;   /* 0.5..2.0 */
     char overlay_layout[64];
+    /* toque remoto (Moonlight → Sunshine): off, exclusive (só o controle
+     * recebe os toques), shared (fora dos controles o toque segue para o
+     * desktop, onde o compositor aceita toque) */
+    char remote_touch[12];
+    char overlay_output[32]; /* conector do monitor (DP-1); vazio: o principal */
     /* [Mouse] (teclado e mouse como controle) */
     double mouse_sens_x, mouse_sens_y; /* 0.1..10 */
     gboolean invert_y;
@@ -50,5 +61,7 @@ void bk_config_defaults(BkConfig *c);
 void bk_config_load(BkConfig *c, const char *path);
 gboolean bk_config_save(const BkConfig *c, const char *path, GError **err);
 char *bk_config_path(void);
+/* Nome de conector aceitável (letras, números, - _ .), ou vazio. */
+gboolean bk_config_valid_output(const char *name);
 
 #endif

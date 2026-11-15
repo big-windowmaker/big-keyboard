@@ -8,6 +8,7 @@
  *    │ ┌─────┐ ││   ▲     │   esquerda: tecla Enter ↵ (teclado virtual)
  *    │ │   ↵ │ ││ ◀ ● ▶   │   direita: direcional (controle na tela)
  *    │ └─────┘ ││   ▼     │   o botão da janela aberta fica afundado
+ *    │  ▬▬▬▬   ││  ▬▬▬▬   │   LED: verde aberto, cinza fechado
  *    └─────────┴┴─────────┘
  */
 #ifndef BK_DOCK_H
@@ -84,6 +85,8 @@ typedef struct {
 } BkDockState;
 
 void bk_dock_draw(cairo_t *cr, const BkDockLayout *l, const BkDockState *s);
+/* O LED embaixo do botão i: verde com a janela aberta, cinza fechada. */
+void bk_dock_led_rect(const BkDockLayout *l, int i, BkRect *led);
 
 /* Intervalo de duplo clique do Window Maker (DoubleClickTime no domínio
  * WindowMaker do usuário, que o big-wm-wprefs-sync leva ao wlmaker); sem a

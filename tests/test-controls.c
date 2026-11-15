@@ -94,6 +94,29 @@ main(void)
     g_rmdir(dir);
     char *p = bk_ctl_path("../../etc/x");
     CHECK(strstr(p, "/gamepad-layouts/") && !strstr(p, "/../"), "nome de arquivo sem barra: %s", p);
+    g_free(p);
+    /* botão do teclado: na tela, do tamanho de um dedo, sem cobrir nenhum
+     * controle do layout padrão em telas 4:3, 16:10, 16:9 e 21:9 */
+    BkCtlLayout d;
+    bk_ctl_default(&d);
+    const double ratios[] = { 4.0 / 3, 16.0 / 10, 16.0 / 9, 21.0 / 9 };
+    const double heights[] = { 480, 1080, 2160 };
+    for (size_t i = 0; i < G_N_ELEMENTS(ratios); i++)
+        for (size_t j = 0; j < G_N_ELEMENTS(heights); j++) {
+            double h = heights[j], w = h * ratios[i], cx, cy, rr;
+            bk_ctl_switch_button(w, h, &cx, &cy, &rr);
+            CHECK(rr * 2 >= 44 && cy - rr >= 0 && cx - rr >= 0 && cx + rr <= w, "botão do teclado na tela (%.0fx%.0f)",
+                  w, h);
+            for (int k = 0; k < d.n; k++) {
+                double dist = hypot(d.c[k].x * w - cx, d.c[k].y * h - cy);
+                CHECK(dist > rr * 1.15 + bk_ctl_px(&d, &d.c[k], h) / 2, "botão do teclado cobre %s (%.0fx%.0f)",
+                      bk_ctl_label(&d.c[k]), w, h);
+            }
+            CHECK(bk_ctl_switch_hit(w, h, cx, cy) && bk_ctl_switch_hit(w, h, cx + rr, cy), "toque no botão (%.0fx%.0f)",
+                  w, h);
+            CHECK(!bk_ctl_switch_hit(w, h, cx, cy + rr * 1.5) && !bk_ctl_switch_hit(w, h, w / 2, h / 2),
+                  "toque fora do botão (%.0fx%.0f)", w, h);
+        }
     if (!fails)
         printf("bk-controls: todos os casos passaram\n");
     return fails ? 1 : 0;

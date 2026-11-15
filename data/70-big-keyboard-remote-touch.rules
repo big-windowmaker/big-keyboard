@@ -1,0 +1,9 @@
+# Big WM Virtual Keyboard: the person at the active seat may read Sunshine's
+# virtual touchscreen (the fingers of a phone playing through Moonlight), so
+# the on-screen controller can turn them into gamepad presses.
+#
+# Narrow on purpose: only the uinput device Sunshine (libvirtualhid) creates,
+# by exact name and under /devices/virtual. Physical touchscreens and every
+# other input device are untouched. Creating such a device already requires
+# /dev/uinput access, so this grants nothing new to an attacker.
+SUBSYSTEM=="input", KERNEL=="event*", DEVPATH=="/devices/virtual/input/*", ATTRS{name}=="libvirtualhid Touchscreen", TAG+="uaccess"
