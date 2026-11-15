@@ -6,8 +6,12 @@
  * Só recebe toques sobre os controles: a região de entrada é a união dos
  * círculos, o resto da tela continua sendo do jogo. Wayland: layer-shell
  * na camada OVERLAY (acima de janelas em tela cheia que o compositor deixe
- * cobrir), sem teclado; X11: janela DOCK acima, sem foco, com forma de
- * entrada (a transparência pede um compositor, como o picom da sessão).
+ * cobrir), sem teclado; X11: janela override-redirect com forma de entrada
+ * (a transparência pede um compositor, como o picom da sessão). Uma janela
+ * DOCK "sempre acima" ficava atrás do jogo em tela cheia: o Window Maker,
+ * o KWin e o xfwm4 põem a tela cheia acima das docas (EWMH). Fora do
+ * gerenciador, ela volta ao topo quando ele reempilha as janelas
+ * (_NET_CLIENT_LIST_STACKING ou _NET_ACTIVE_WINDOW na raiz mudam).
  *
  * Toque remoto (bk-rtouch.c): com o controle visível, os dedos de um
  * celular no Moonlight chegam pelo touchscreen virtual do Sunshine, lido
@@ -39,6 +43,10 @@
 #include <gdk/gdkwayland.h>
 #include <gtk-layer-shell.h>
 #endif
+#ifdef BK_HAVE_X11
+#include <gdk/gdkx.h>
+#include <X11/Xlib.h>
+#endif
 
 typedef enum { TB_ADD_BTN, TB_ADD_STICK, TB_ADD_DPAD, TB_DEL, TB_FUNC, TB_DZ, TB_SENS, TB_OPAC, TB_SAVE,
                TB_RESET, TB_DONE, TB_N } ToolButton;
@@ -58,6 +66,9 @@ struct BkOverlay {
     BkApp *app;
     GtkWidget *win, *area;
     gboolean layer, edit;
+#ifdef BK_HAVE_X11
+    Atom stacking, active; /* propriedades da raiz que o gerenciador muda ao reempilhar */
+#endif
     BkCtlLayout lay;
     BkCtlState st;
     BkCtlSink sink;
@@ -815,6 +826,23 @@ load_layout(BkOverlay *ov)
     g_free(path);
 }
 
+#ifdef BK_HAVE_X11
+/* O gerenciador reempilhou (uma janela subiu, foi ativada, entrou em tela
+ * cheia): o controle volta ao topo. Levantar uma janela override-redirect
+ * não muda essas propriedades, então não há laço. */
+static GdkFilterReturn
+on_root_event(GdkXEvent *xev, GdkEvent *ev, gpointer data)
+{
+    (void)ev;
+    BkOverlay *ov = data;
+    XEvent *e = xev;
+    if (e->type == PropertyNotify && (e->xproperty.atom == ov->stacking || e->xproperty.atom == ov->active) &&
+        gtk_widget_get_visible(ov->win))
+        gdk_window_raise(gtk_widget_get_window(ov->win));
+    return GDK_FILTER_CONTINUE;
+}
+#endif
+
 BkOverlay *
 bk_overlay_new(BkApp *app)
 {
@@ -828,7 +856,13 @@ bk_overlay_new(BkApp *app)
     ov->rt_edit = -1;
     ov->sink = (BkCtlSink){ s_button, s_stick, s_trigger, s_hat, s_sync, ov };
     bk_ctl_state_init(&ov->st);
-    ov->win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gboolean x11 = FALSE;
+#ifdef BK_HAVE_X11
+    x11 = GDK_IS_X11_DISPLAY(gdk_display_get_default());
+#endif
+    /* X11: override-redirect (GTK_WINDOW_POPUP), fora das camadas do
+     * gerenciador, para ficar acima de um jogo em tela cheia */
+    ov->win = gtk_window_new(x11 ? GTK_WINDOW_POPUP : GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(ov->win), "Big WM Virtual Keyboard — controle na tela");
     gtk_application_add_window(app->gtk, GTK_WINDOW(ov->win));
     GdkScreen *scr = gtk_widget_get_screen(ov->win);
@@ -857,6 +891,16 @@ bk_overlay_new(BkApp *app)
         gtk_window_set_skip_taskbar_hint(GTK_WINDOW(ov->win), TRUE);
         gtk_window_stick(GTK_WINDOW(ov->win));
     }
+#ifdef BK_HAVE_X11
+    if (x11) {
+        GdkDisplay *dpy = gdk_display_get_default();
+        ov->stacking = gdk_x11_get_xatom_by_name_for_display(dpy, "_NET_CLIENT_LIST_STACKING");
+        ov->active = gdk_x11_get_xatom_by_name_for_display(dpy, "_NET_ACTIVE_WINDOW");
+        GdkWindow *root = gdk_get_default_root_window();
+        gdk_window_set_events(root, gdk_window_get_events(root) | GDK_PROPERTY_CHANGE_MASK);
+        gdk_window_add_filter(root, on_root_event, ov);
+    }
+#endif
     ov->area = gtk_drawing_area_new();
     gtk_widget_add_events(ov->area,
                           GDK_TOUCH_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_BUTTON1_MOTION_MASK);
