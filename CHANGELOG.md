@@ -28,6 +28,9 @@
   aos botões Controle, Configurar e Ocultar; os emojis do painel ☺ pedem
   uma fonte de emoji (`noto-fonts-emoji`, nova dependência), sem a qual
   apareciam como quadrados com o código.
+- **Ícone novo**: controle sobre teclado, em branco, num quadrado
+  arredondado verde-azulado com gradiente (o estilo dos ícones do Big
+  Remote Play Together). `librsvg` passa a ser dependência explícita.
 
 ## 0.2.0 (2026-11-15)
 
