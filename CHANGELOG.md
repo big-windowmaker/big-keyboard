@@ -2,6 +2,15 @@
 
 ## Não lançado
 
+- **Controle na tela visível na tela de bloqueio** (Wayland): com a sessão
+  bloqueada, o controle continuava funcionando pelo Moonlight, mas o
+  desenho ficava atrás do bloqueio (ext-session-lock). Enquanto o controle
+  está na tela, o layout, o monitor e o PID ficam em
+  `$XDG_RUNTIME_DIR/big-keyboard/lock-gamepad.ini`, e o módulo do gtklock
+  do big-wm (`big-wm-lockscreen`) o desenha por cima do bloqueio, só como
+  imagem: os toques continuam vindo para cá. O desenho foi para
+  `src/gamepad/bk-ctlpaint.{c,h}` (só cairo, Pango e GLib), copiado pelo
+  `sync.sh` do big-wm.
 - **Botão Guia no controle na tela** (o do logo: Xbox, PS, Home): no alto
   ao centro, logo abaixo do botão do teclado e entre Select e Start, em
   todos os modelos. Desenhado em vetor conforme a família dos botões (esfera

@@ -769,7 +769,7 @@ on_preview_draw(GtkWidget *w, cairo_t *cr, gpointer data)
         st.py[t] = st.oy[t] + dy;
         t++;
     }
-    bk_ctl_paint_layout(cr, &l, &st, W, H);
+    bk_ctl_paint_layout(cr, &l, &st, W, H, bk_draw_icon_keyboard);
     return TRUE;
 }
 

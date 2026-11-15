@@ -6,6 +6,7 @@
 #include "big-wm-gamepad.h"
 #include "bk-config.h"
 #include "bk-controls.h"
+#include "bk-ctlpaint.h"
 #include "bk-inject.h"
 #include "bk-keys.h"
 #include "bk-vpad.h"
@@ -90,15 +91,6 @@ void bk_overlay_remote_touch(BkOverlay *ov, const void *id, BkCtlPhase phase, do
 void bk_overlay_output_changed(BkOverlay *ov);
 GdkMonitor *bk_monitor_by_name(GdkDisplay *dpy, const char *name);
 
-/* ---- desenho do controle na tela, nos estilos (bk-ctlpaint.c) -------------- */
-/* Um controle; now e pressed_at em µs (g_get_monotonic_time; 0: sem animação). */
-void bk_ctl_paint(cairo_t *cr, const BkCtlLayout *l, const BkCtlState *s, double w, double h, int i, gint64 now,
-                  gint64 pressed_at);
-/* A animação de toque ainda está em curso (pede outro quadro)? */
-gboolean bk_ctl_paint_animating(const BkCtlLayout *l, gint64 now, gint64 pressed_at);
-void bk_ctl_paint_switch(cairo_t *cr, const BkCtlLayout *l, double w, double h, gboolean down);
-/* O layout inteiro, parado (prévia das configurações). */
-void bk_ctl_paint_layout(cairo_t *cr, const BkCtlLayout *l, const BkCtlState *s, double w, double h);
 /* O controle na tela releu o layout do disco (configurações mudaram a aparência). */
 void bk_overlay_reload(BkOverlay *ov);
 

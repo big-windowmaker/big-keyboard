@@ -14,11 +14,16 @@
  * o direcional acende o lado apertado (cruz, quatro setas ou disco). A
  * animação de toque: afundar, brilho, onda (um anel que se abre, 320 ms),
  * encolher, ou nenhuma.
+ *
+ * Só cairo, Pango e GLib (sem GTK): a tela de bloqueio do big-wm copia este
+ * arquivo e o bk-controls para mostrar o controle na tela por cima do
+ * bloqueio (session/lockscreen/bk/ no big-wm).
  */
-#include "bk-app.h"
+#include "bk-ctlpaint.h"
 
 #include <linux/input-event-codes.h>
 #include <math.h>
+#include <pango/pangocairo.h>
 #include <string.h>
 
 #define RIPPLE_US 320000
@@ -379,7 +384,7 @@ bk_ctl_paint_animating(const BkCtlLayout *l, gint64 now, gint64 pressed_at)
 }
 
 void
-bk_ctl_paint_switch(cairo_t *cr, const BkCtlLayout *l, double w, double h, gboolean down)
+bk_ctl_paint_switch(cairo_t *cr, const BkCtlLayout *l, double w, double h, gboolean down, BkCtlIconFn icon)
 {
     Look k;
     look_of(l, &k);
@@ -389,14 +394,16 @@ bk_ctl_paint_switch(cairo_t *cr, const BkCtlLayout *l, double w, double h, gbool
     face(cr, &k, cx, cy, r, down, NULL, a);
     double c[3];
     ink(&k, NULL, c);
-    bk_draw_icon_keyboard(cr, cx, cy + (down && (k.classic || k.retro) ? (k.retro ? r * 0.14 : 1) : 0), r * 1.15,
+    if (icon)
+        icon(cr, cx, cy + (down && (k.classic || k.retro) ? (k.retro ? r * 0.14 : 1) : 0), r * 1.15,
                           c[0], c[1], c[2], MIN(1, a + 0.3));
 }
 
 void
-bk_ctl_paint_layout(cairo_t *cr, const BkCtlLayout *l, const BkCtlState *s, double w, double h)
+bk_ctl_paint_layout(cairo_t *cr, const BkCtlLayout *l, const BkCtlState *s, double w, double h, BkCtlIconFn icon)
 {
     for (int i = 0; i < l->n; i++)
         bk_ctl_paint(cr, l, s, w, h, i, 0, 0);
-    bk_ctl_paint_switch(cr, l, w, h, FALSE);
+    if (icon)
+        bk_ctl_paint_switch(cr, l, w, h, FALSE, icon);
 }
