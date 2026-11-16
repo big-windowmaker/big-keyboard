@@ -256,7 +256,8 @@ on_draw(GtkWidget *w, cairo_t *cr, gpointer data)
     note_presses(ov);
     gint64 now = g_get_monotonic_time();
     for (int i = 0; i < ov->lay.n; i++)
-        bk_ctl_paint(cr, &ov->lay, &ov->st, ov->w, ov->h, i, now, ov->pressed_at[i]);
+        if (ov->edit || ov->lay.c[i].enabled) /* jogando, um desligado não aparece */
+            bk_ctl_paint(cr, &ov->lay, &ov->st, ov->w, ov->h, i, now, ov->pressed_at[i]);
     if (ov->edit && ov->sel >= 0)
         draw_selection(ov, cr, ov->sel);
     if (!ov->edit)
@@ -411,9 +412,13 @@ edit_press(BkOverlay *ov, double x, double y)
             return;
         }
     }
-    int i = bk_ctl_hit(&ov->lay, ov->w, ov->h, x, y);
+    int i = bk_ctl_hit_edit(&ov->lay, ov->w, ov->h, x, y);
     ov->sel = i;
     ov->drag = i;
+    if (i >= 0 && !ov->lay.c[i].enabled) {
+        ov->lay.c[i].enabled = true; /* tocado no editor: liga, para arrastar ao lugar */
+        update_input_region(ov);
+    }
     if (i >= 0) {
         ov->grab_dx = x - ov->lay.c[i].x * ov->w;
         ov->grab_dy = y - ov->lay.c[i].y * ov->h;

@@ -247,6 +247,22 @@ main(void)
         g_free(dir3);
         CHECK(!bk_ctl_template(&x, "nao-existe"), "modelo desconhecido recusado");
     }
+    {   /* desligado: o jogo não o acerta, o editor sim (para ligar) */
+        BkCtlLayout d;
+        bk_ctl_default(&d);
+        int g = -1;
+        for (int i = 0; i < d.n; i++)
+            if (d.c[i].kind == BKC_BUTTON && d.c[i].code == BTN_MODE)
+                g = i;
+        CHECK(g >= 0, "layout padrão com o Guia");
+        if (g >= 0) {
+            double px = d.c[g].x * W, py = d.c[g].y * H;
+            CHECK(bk_ctl_hit(&d, W, H, px, py) == g && bk_ctl_hit_edit(&d, W, H, px, py) == g, "Guia ligado: os dois acertam");
+            d.c[g].enabled = false;
+            CHECK(bk_ctl_hit(&d, W, H, px, py) != g, "Guia desligado: o jogo não o acerta");
+            CHECK(bk_ctl_hit_edit(&d, W, H, px, py) == g, "Guia desligado: o editor o acerta");
+        }
+    }
     if (!fails)
         printf("bk-controls: todos os casos passaram\n");
     return fails ? 1 : 0;
