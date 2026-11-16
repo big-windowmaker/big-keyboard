@@ -12,7 +12,7 @@
 # Para compilar a cópia local do repositório:
 #   BIG_KEYBOARD_SOURCE="git+file://$PWD/.." makepkg
 pkgname=big-keyboard
-pkgver=0.2.1
+pkgver=0.2.2
 pkgrel=1
 pkgdesc="Big WindowMaker: teclado na tela, digitação pelo controle e controle na tela de toque (X11 e Wayland)"
 arch=('x86_64')
@@ -28,7 +28,7 @@ makedepends=('git' 'meson' 'wayland-protocols')
 optdepends=(
 	'steam-devices: acesso ao /dev/uinput para o controle virtual (regra uaccess)'
 	'game-devices-udev: alternativa ao steam-devices para o /dev/uinput'
-	'big-wm-lockscreen: o teclado com controle na tela de bloqueio'
+	'big-wm-lockscreen: o teclado com controle na tela de bloqueio e o controle na tela por cima do bloqueio (Wayland)'
 	'big-wm-session: o dockapp no menu Dockapps e o botão das configurações da tela de bloqueio (big-wm-lock-settings)'
 	'xorg-xwayland: o dockapp no Dock do wlmaker (é um dockapp X11, acoplado pelo XWayland)'
 	'picom: transparência do controle na tela no X11 (sem compositor, o fundo fica preto)'

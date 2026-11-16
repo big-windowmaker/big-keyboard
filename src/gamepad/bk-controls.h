@@ -28,6 +28,12 @@ typedef struct {
 } BkCtl;
 
 #define BKC_MAX 32
+
+/* O botão Guia (Xbox, PS, Home): no alto ao centro, logo abaixo do botão do
+ * teclado e entre Select e Start, um pouco maior que eles. */
+#define BKC_GUIDE_X 0.50
+#define BKC_GUIDE_Y 0.19
+#define BKC_GUIDE_SIZE 0.09
 #define BKC_TOUCHES 16
 
 /* Aparência, gravada com o layout (um layout "PlayStation" já vem com
@@ -75,6 +81,9 @@ void bk_ctl_default(BkCtlLayout *l);
 double bk_ctl_px(const BkCtlLayout *l, const BkCtl *c, double h);
 /* O controle sob (px, py), ou -1. */
 int bk_ctl_hit(const BkCtlLayout *l, double w, double h, double px, double py);
+/* No editor: os desligados também (um Guia que a migração desligou por
+ * estar num lugar ocupado se liga ao ser tocado). */
+int bk_ctl_hit_edit(const BkCtlLayout *l, double w, double h, double px, double py);
 void bk_ctl_state_init(BkCtlState *s);
 /* Um evento de toque; px/py em pixels da tela w×h. */
 void bk_ctl_touch(BkCtlState *s, const BkCtlLayout *l, double w, double h, const void *seq, BkCtlPhase phase,

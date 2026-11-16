@@ -21,6 +21,14 @@
  * normalizado à imagem desse monitor. O dispositivo sumir (fim da sessão,
  * queda da rede detectada pelo Sunshine) solta tudo o que os dedos seguravam.
  *
+ * Tela de bloqueio: com a sessão bloqueada (ext-session-lock no Wayland), só
+ * o bloqueador aparece; o controle continua aberto e o controle virtual
+ * chega ao bloqueador, mas o desenho fica atrás dele. Enquanto está na
+ * tela, o layout (como aparece), o monitor e o PID ficam em
+ * $XDG_RUNTIME_DIR/big-keyboard/lock-gamepad.ini, que o módulo do gtklock
+ * do big-wm desenha por cima do bloqueio, só para ver (os toques continuam
+ * vindo para cá). Fechar o controle apaga o arquivo; um PID morto o anula.
+ *
  * O botão com o teclado, no alto ao centro, troca o controle pelo teclado
  * ao soltar o dedo (o teclado tem o botão de volta); o controle virtual
  * continua ligado, e o jogo não o vê sair.
@@ -35,6 +43,8 @@
 
 #include <errno.h>
 #include <glib-unix.h>
+#include <glib/gstdio.h>
+#include <unistd.h>
 
 #include <linux/input-event-codes.h>
 #include <math.h>
@@ -246,11 +256,12 @@ on_draw(GtkWidget *w, cairo_t *cr, gpointer data)
     note_presses(ov);
     gint64 now = g_get_monotonic_time();
     for (int i = 0; i < ov->lay.n; i++)
-        bk_ctl_paint(cr, &ov->lay, &ov->st, ov->w, ov->h, i, now, ov->pressed_at[i]);
+        if (ov->edit || ov->lay.c[i].enabled) /* jogando, um desligado não aparece */
+            bk_ctl_paint(cr, &ov->lay, &ov->st, ov->w, ov->h, i, now, ov->pressed_at[i]);
     if (ov->edit && ov->sel >= 0)
         draw_selection(ov, cr, ov->sel);
     if (!ov->edit)
-        bk_ctl_paint_switch(cr, &ov->lay, ov->w, ov->h, ov->sw_armed);
+        bk_ctl_paint_switch(cr, &ov->lay, ov->w, ov->h, ov->sw_armed, bk_draw_icon_keyboard);
     if (ov->edit) {
         double x, y, bw, bh;
         tb_rect(ov, 0, &x, &y, &bw, &bh);
@@ -401,9 +412,13 @@ edit_press(BkOverlay *ov, double x, double y)
             return;
         }
     }
-    int i = bk_ctl_hit(&ov->lay, ov->w, ov->h, x, y);
+    int i = bk_ctl_hit_edit(&ov->lay, ov->w, ov->h, x, y);
     ov->sel = i;
     ov->drag = i;
+    if (i >= 0 && !ov->lay.c[i].enabled) {
+        ov->lay.c[i].enabled = true; /* tocado no editor: liga, para arrastar ao lugar */
+        update_input_region(ov);
+    }
     if (i >= 0) {
         ov->grab_dx = x - ov->lay.c[i].x * ov->w;
         ov->grab_dy = y - ov->lay.c[i].y * ov->h;
@@ -653,6 +668,64 @@ load_layout(BkOverlay *ov)
     g_free(path);
 }
 
+/* ---- espelho para a tela de bloqueio --------------------------------------- */
+
+static char *
+mirror_path(void)
+{
+    return g_build_filename(g_get_user_runtime_dir(), "big-keyboard", "lock-gamepad.ini", NULL);
+}
+
+static void
+mirror_clear(void)
+{
+    char *path = mirror_path();
+    g_unlink(path);
+    g_free(path);
+}
+
+static void
+on_app_shutdown(GApplication *a, gpointer data)
+{
+    (void)a;
+    (void)data;
+    mirror_clear();
+}
+
+/* O layout como está na tela, o monitor (geometria lógica, a mesma que o
+ * GTK do bloqueador vê) e quem o publica. Gravação atômica. */
+static void
+mirror_publish(BkOverlay *ov)
+{
+    if (ov->edit)
+        return;
+    char *path = mirror_path(), *tmp = g_strconcat(path, ".tmp", NULL);
+    GError *err = NULL;
+    if (bk_ctl_save(&ov->lay, tmp, &err)) {
+        GKeyFile *k = g_key_file_new();
+        if (g_key_file_load_from_file(k, tmp, G_KEY_FILE_NONE, NULL)) {
+            g_key_file_set_integer(k, "Mirror", "Pid", (int)getpid());
+            if (ov->monitor) {
+                GdkRectangle g;
+                gdk_monitor_get_geometry(ov->monitor, &g);
+                gint geo[4] = { g.x, g.y, g.width, g.height };
+                g_key_file_set_integer_list(k, "Mirror", "Monitor", geo, 4);
+            }
+            if (!g_key_file_save_to_file(k, path, &err)) {
+                g_message("controle na tela de bloqueio: %s", err->message);
+                g_clear_error(&err);
+            }
+        }
+        g_key_file_free(k);
+        g_unlink(tmp);
+    } else {
+        g_message("controle na tela de bloqueio: %s", err->message);
+        g_clear_error(&err);
+    }
+    g_free(tmp);
+    g_free(path);
+}
+
 #ifdef BK_HAVE_X11
 /* O gerenciador reempilhou (uma janela subiu, foi ativada, entrou em tela
  * cheia): o controle volta ao topo. Levantar uma janela override-redirect
@@ -734,6 +807,8 @@ bk_overlay_new(BkApp *app)
     g_signal_connect(ov->area, "size-allocate", G_CALLBACK(on_size), ov);
     gtk_container_add(GTK_CONTAINER(ov->win), ov->area);
     load_layout(ov);
+    mirror_clear(); /* sobra de uma execução que caiu */
+    g_signal_connect(app->gtk, "shutdown", G_CALLBACK(on_app_shutdown), NULL);
     return ov;
 }
 
@@ -750,6 +825,7 @@ overlay_hide(BkOverlay *ov, gboolean keep_pad)
     }
     bk_overlay_release(ov); /* botões soltos e analógicos no centro */
     gtk_widget_hide(ov->win);
+    mirror_clear();
     if (ov->app->vpad && !keep_pad) { /* o jogo vê o controle sair: nada fica preso nem órfão */
         bk_vpad_free(ov->app->vpad);
         ov->app->vpad = NULL;
@@ -798,6 +874,10 @@ bk_overlay_set_visible(BkOverlay *ov, gboolean visible, gboolean edit)
         gtk_widget_show_all(ov->win);
         update_input_region(ov);
         gtk_widget_queue_draw(ov->area);
+        if (edit)
+            mirror_clear();
+        else
+            mirror_publish(ov);
     } else {
         overlay_hide(ov, FALSE);
     }
@@ -843,6 +923,7 @@ bk_overlay_reload(BkOverlay *ov)
     bk_ctl_release(&ov->st, &ov->lay, &ov->sink);
     load_layout(ov);
     memset(ov->was_held, 0, sizeof ov->was_held);
+    mirror_publish(ov);
     update_input_region(ov);
     gtk_widget_queue_draw(ov->area);
 }

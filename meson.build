@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-project('big-keyboard', 'c', version: '0.2.1', license: 'GPL-2.0-or-later', meson_version: '>= 0.61',
+project('big-keyboard', 'c', version: '0.2.2', license: 'GPL-2.0-or-later', meson_version: '>= 0.61',
         default_options: ['c_std=gnu11', 'warning_level=2', 'buildtype=debugoptimized'])
 
 cc = meson.get_compiler('c')
@@ -73,7 +73,7 @@ if wl_client.found() and gtk_wl.found() and layer_shell.found()
 endif
 
 executable('big-keyboard',
-  'src/ui/bk-app.c', 'src/ui/bk-focus.c', 'src/ui/bk-osk.c', 'src/ui/bk-overlay.c', 'src/ui/bk-outputs.c', 'src/ui/bk-settings.c', 'src/ui/bk-remote.c', 'src/ui/bk-ctlpaint.c',
+  'src/ui/bk-app.c', 'src/ui/bk-focus.c', 'src/ui/bk-osk.c', 'src/ui/bk-overlay.c', 'src/ui/bk-outputs.c', 'src/ui/bk-settings.c', 'src/ui/bk-remote.c', 'src/gamepad/bk-ctlpaint.c',
   'src/input/bk-inject.c',
   wl_src, c_args: app_args, dependencies: app_deps, include_directories: include_directories('src/ui'),
   install: true)
