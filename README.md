@@ -51,7 +51,7 @@
 | **Toque remoto** | os dedos do celular (Moonlight + Sunshine) apertam o controle na tela e as teclas, e fora deles viram mouse (touchpad, clique esquerdo e direito, rolagem); usado pelo Big Remote Play |
 | **Dockapp** | dois botões num ladrilho do Dock, cada um com um LED: Enter ↵ para o teclado, direcional para o controle na tela |
 | **Xbox Cloud Gaming** | configura e orienta o uso do [Better xCloud](https://better-xcloud.github.io/) no navegador |
-| **Tela de bloqueio** | o teclado com controle já vem no bloqueador do big-wm (gtklock no Wayland, xsecurelock no X11); a senha nunca passa por este programa |
+| **Tela de bloqueio** | o teclado com controle já vem no bloqueador do big-wm (gtklock no Wayland, xsecurelock no X11); a senha nunca passa por este programa. No Wayland, o controle na tela aberto aparece por cima do bloqueio (só o desenho, pelo módulo do gtklock; `OnScreenGamepad=false` no `lock.conf` desliga) |
 
 | Ação | Como |
 |---|---|
