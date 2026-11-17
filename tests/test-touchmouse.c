@@ -181,6 +181,33 @@ main(void)
         bk_tm_touch(&m, &a, BKC_CANCEL, 10, 10, 120, &s);
         CHECK(r.left_presses == 1, "toque cancelado não clica");
     }
+    { /* quando o mouse age: o pedido de 2026-11-17 — teclado e controle
+         * ocultos no wlmaker paravam o ponteiro do celular */
+        CHECK(bk_tm_reads("mouse", false, false, true), "modo mouse: lê o celular com tudo oculto");
+        CHECK(!bk_tm_reads("mouse", false, false, false),
+              "modo mouse sem ponteiro: não agarra o celular com tudo oculto (os dedos iriam fora)");
+        CHECK(bk_tm_reads("mouse", true, false, false), "modo mouse sem ponteiro: o teclado aberto ainda lê");
+        CHECK(!bk_tm_reads("exclusive", false, false, true) && bk_tm_reads("exclusive", true, false, true),
+              "exclusive: só com algo aberto (como antes)");
+        CHECK(!bk_tm_reads("off", true, true, true), "off: nunca");
+        CHECK(bk_tm_exclusive("mouse") && bk_tm_exclusive("exclusive") && !bk_tm_exclusive("shared"),
+              "mouse agarra o dispositivo como o exclusive");
+        CHECK(bk_tm_mode_for("mouse", "auto", true, false, false, true) == BKTM_DIRECT,
+              "tudo oculto: toque direto na tela inteira");
+        CHECK(bk_tm_mode_for("mouse", "touchpad", true, false, false, true) == BKTM_TOUCHPAD,
+              "tudo oculto respeita Sempre touchpad");
+        CHECK(bk_tm_mode_for("exclusive", "auto", true, false, false, true) == -1,
+              "exclusive com tudo oculto: nada (o desktop recebe o toque)");
+        CHECK(bk_tm_mode_for("mouse", "auto", true, false, true, true) == -1,
+              "só o controle aberto: fora dos controles não clica");
+        CHECK(bk_tm_mode_for("mouse", "auto", true, true, false, true) == BKTM_TOUCHPAD &&
+                  bk_tm_mode_for("mouse", "auto", true, true, true, true) == BKTM_DIRECT,
+              "com o teclado aberto, igual ao exclusive");
+        CHECK(bk_tm_mode_for("mouse", "off", true, false, false, true) == -1 &&
+                  bk_tm_mode_for("mouse", "auto", false, false, false, true) == -1 &&
+                  bk_tm_mode_for("mouse", "auto", true, false, false, false) == -1,
+              "mouse desligado, sem exclusividade ou sem ponteiro: nada");
+    }
     if (!fails)
         printf("bk-touchmouse: todos os casos passaram\n");
     return fails ? 1 : 0;

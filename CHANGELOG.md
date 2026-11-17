@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.3 (2026-11-17)
+
+- **Mouse do celular com o teclado e o controle ocultos**: novo modo de
+  toque remoto `mouse` (`--remote-touch=mouse`, ação `remote-touch`,
+  Configurações > Celular > *Também o mouse com os dois ocultos*). É o
+  `exclusive` que continua lendo o touchscreen do Sunshine com tudo
+  oculto, e então todo dedo vira o mouse em toque direto (ou touchpad, com
+  *Sempre touchpad*). Com o teclado ou o controle abertos, nada muda. O Big
+  Remote Play o pede onde o desktop ignora o toque do Sunshine (wlmaker):
+  antes, ocultar os dois parava o ponteiro do celular. Sem um ponteiro
+  virtual para mover, o celular não é agarrado com tudo oculto (os dedos
+  iriam fora). As regras ficaram
+  em `bk_tm_reads`, `bk_tm_exclusive` e `bk_tm_mode_for`
+  (`src/input/bk-touchmouse.c`), testadas em `tests/test-touchmouse.c`.
+
 ## 0.2.2 (2026-11-15)
 
 - **Controle na tela visível na tela de bloqueio** (Wayland): com a sessão

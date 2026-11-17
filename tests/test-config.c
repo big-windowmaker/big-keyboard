@@ -70,6 +70,9 @@ main(void)
     g_file_set_contents(f, "[General]\nVersion=1\n[VirtualGamepad]\nRemoteTouch=shared\nOutput=DP-1\n", -1, NULL);
     bk_config_load(&d, f);
     CHECK(!strcmp(d.remote_touch, "shared") && !strcmp(d.overlay_output, "DP-1"), "toque remoto e monitor lidos");
+    g_file_set_contents(f, "[General]\nVersion=1\n[VirtualGamepad]\nRemoteTouch=mouse\n", -1, NULL);
+    bk_config_load(&d, f);
+    CHECK(!strcmp(d.remote_touch, "mouse"), "toque remoto mouse lido");
     g_file_set_contents(f, "[General]\nVersion=1\n[VirtualGamepad]\nRemoteTouch=root\nOutput=../etc;rm\n", -1, NULL);
     bk_config_load(&d, f);
     CHECK(!strcmp(d.remote_touch, "exclusive") && !d.overlay_output[0], "valores estranhos recusados");

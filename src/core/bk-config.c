@@ -127,7 +127,7 @@ bk_config_load(BkConfig *c, const char *path)
     static const char *const modes[] = { "cursor", "point", "both", NULL };
     static const char *const ids[] = { "generic", "xbox360", NULL };
     static const char *const backends[] = { "better-xcloud", "linux", NULL };
-    static const char *const rtouch[] = { "off", "exclusive", "shared", NULL };
+    static const char *const rtouch[] = { "off", "exclusive", "shared", "mouse", NULL };
     static const char *const display_modes[] = { "independent", "exclusive", NULL };
     get_s(k, "General", "DisplayMode", c->display_mode, sizeof c->display_mode, display_modes);
     get_s(k, "Keyboard", "Layout", c->layout, sizeof c->layout, layouts);
