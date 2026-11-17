@@ -17,6 +17,10 @@
  *             clique esquerdo ali; arrastar aperta o esquerdo no ponto do
  *             toque e arrasta.
  *
+ * Com o teclado e o controle ocultos, só no modo de toque remoto "mouse"
+ * (o desktop ignora o touchscreen do Sunshine, como o wlmaker), todo dedo
+ * vira o mouse em toque direto: sem isso o ponteiro pararia.
+ *
  * Nos dois: com um dedo na tela, um toque rápido de um segundo dedo é o
  * clique direito (onde o ponteiro está), e o primeiro dedo, ao sair, não
  * clica mais; dois dedos que se movem juntos rolam a página.
@@ -69,5 +73,18 @@ void bk_tm_touch(BkTouchMouse *m, const void *id, BkCtlPhase phase, double x, do
                  const BkTmSink *sink);
 /* Encerra tudo (dispositivo sumiu, modo mudou): solta o botão apertado. */
 void bk_tm_cancel(BkTouchMouse *m, const BkTmSink *sink);
+
+/* ---- quando o mouse age (toque remoto) ---------------------------------
+ * remote_touch: off | exclusive | shared | mouse. "mouse" é o exclusive que
+ * continua lendo o celular com o teclado e o controle ocultos. */
+
+/* Ler o touchscreen do celular agora? */
+bool bk_tm_reads(const char *remote_touch, bool keyboard, bool controller);
+/* Agarrar o dispositivo (nenhum dedo chega ao compositor)? */
+bool bk_tm_exclusive(const char *remote_touch);
+/* O modo do mouse para um dedo fora do teclado e do controle, ou -1
+ * (nada): só com o dispositivo agarrado e um ponteiro para mover. */
+int bk_tm_mode_for(const char *remote_touch, const char *remote_mouse, bool grabbed, bool keyboard,
+                   bool controller, bool pointer);
 
 #endif

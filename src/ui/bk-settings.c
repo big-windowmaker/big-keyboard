@@ -633,13 +633,15 @@ page_remote(Settings *s)
     }
     s->remote_state_id = g_signal_connect(s->app->gtk, "action-state-changed::remote-touch-status",
                                           G_CALLBACK(on_remote_state), s);
-    static const char *const modes[] = { "exclusive", "Só o teclado e o controle (recomendado)", "shared",
-                                         "Também o desktop", "off", "Desligado", NULL };
+    static const char *const modes[] = { "exclusive", "Só o teclado e o controle (recomendado)", "mouse",
+                                         "Também o mouse com os dois ocultos", "shared", "Também o desktop",
+                                         "off", "Desligado", NULL };
     row(p, "Toque do celular", "No exclusivo, nenhum dedo vira clique por fora (e o mouse pelo toque funciona)",
         combo(s->app->cfg.remote_touch, sizeof s->app->cfg.remote_touch, modes));
     static const char *const mice[] = { "auto", "Automático (recomendado)", "touchpad", "Sempre touchpad",
                                         "direct", "Sempre toque direto", "off", "Desligado", NULL };
-    row(p, "Mouse pelo toque", "Os dedos fora do teclado e do controle, com o teclado aberto",
+    row(p, "Mouse pelo toque", "Os dedos fora do teclado e do controle, com o teclado aberto (ou com os dois ocultos, "
+                               "no modo Também o mouse)",
         combo(s->app->cfg.remote_mouse, sizeof s->app->cfg.remote_mouse, mice));
     row(p, "Velocidade do touchpad", NULL, scale(&s->app->cfg.remote_mouse_speed, 0.5, 4.0, 0.1));
     note(p, "<b>Automático</b>\n"
@@ -651,7 +653,9 @@ page_remote(Settings *s)
             "• Nos dois: com um dedo na tela, um toque com outro dedo é o <b>clique direito</b>; dois dedos "
             "juntos rolam a página.\n"
             "• Só o controle na tela aberto: tocar fora dos controles não faz nada (no meio do jogo, um clique "
-            "perdido atrapalha).");
+            "perdido atrapalha).\n"
+            "• Teclado e controle ocultos, no modo <b>Também o mouse com os dois ocultos</b> (o Big Remote Play "
+            "usa no wlmaker, que ignora o toque do Sunshine): <b>toque direto</b> na tela inteira.");
     note(p, "<small>O teclado abre no monitor transmitido enquanto um celular estiver conectado. O monitor é o "
             "do controle na tela (o Big Remote Play o escolhe; na linha de comando, <tt>--output</tt>).</small>");
     return p;

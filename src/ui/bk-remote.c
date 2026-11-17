@@ -16,6 +16,12 @@
  *   4. nada: com só o controle aberto, tocar fora dos controles não faz
  *      nada (no meio do jogo, um clique perdido atrapalha).
  *
+ * No modo "mouse" (exclusive que não desliga), o celular continua sendo
+ * lido com o teclado e o controle ocultos e todo dedo é o mouse em toque
+ * direto: é o que o Big Remote Play pede onde o desktop ignora o
+ * touchscreen do Sunshine (wlmaker). Sem isso, ocultar os dois parava o
+ * ponteiro do celular.
+ *
  * O toque chega normalizado à imagem do monitor transmitido
  * (overlay-output); o teclado e o controle ficam nele enquanto houver um
  * celular conectado.
@@ -153,15 +159,9 @@ static int
 mouse_mode(BkRemote *r, const RtDev *rd)
 {
     BkApp *app = r->app;
-    const char *m = app->cfg.remote_mouse;
-    if (!strcmp(m, "off") || rd->dev.grab != BKRT_GRAB_OK || !bk_osk_visible(app->osk) ||
-        !bk_inject_has_pointer(app->inject))
-        return -1;
-    if (!strcmp(m, "touchpad"))
-        return BKTM_TOUCHPAD;
-    if (!strcmp(m, "direct"))
-        return BKTM_DIRECT;
-    return bk_overlay_visible(app->overlay) ? BKTM_DIRECT : BKTM_TOUCHPAD;
+    return bk_tm_mode_for(app->cfg.remote_touch, app->cfg.remote_mouse, rd->dev.grab == BKRT_GRAB_OK,
+                          bk_osk_visible(app->osk), bk_overlay_visible(app->overlay),
+                          bk_inject_has_pointer(app->inject));
 }
 
 /* ---- roteamento ----------------------------------------------------------- */
@@ -263,7 +263,7 @@ on_fd(gint fd, GIOCondition cond, gpointer data)
 static void
 attach(BkRemote *r)
 {
-    gboolean exclusive = !strcmp(r->app->cfg.remote_touch, "exclusive");
+    gboolean exclusive = bk_tm_exclusive(r->app->cfg.remote_touch);
     char **nodes = bk_rt_find_nodes();
     const char *problem = NULL;
     gboolean added = FALSE;
@@ -336,7 +336,8 @@ stop(BkRemote *r)
     r->watch = NULL;
 }
 
-/* Lê o touchscreen enquanto o teclado ou o controle estiver aberto. */
+/* Lê o touchscreen enquanto o teclado ou o controle estiver aberto (no modo
+ * "mouse", sempre). */
 static gboolean
 on_sync(gpointer data)
 {
@@ -344,7 +345,7 @@ on_sync(gpointer data)
     r->sync_id = 0;
     BkApp *app = r->app;
     gboolean off = !strcmp(app->cfg.remote_touch, "off");
-    gboolean want = !off && (bk_osk_visible(app->osk) || bk_overlay_visible(app->overlay));
+    gboolean want = bk_tm_reads(app->cfg.remote_touch, bk_osk_visible(app->osk), bk_overlay_visible(app->overlay));
     if (want && !r->running)
         start(r);
     else if (!want && r->running)

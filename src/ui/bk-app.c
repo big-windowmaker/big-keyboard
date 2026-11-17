@@ -363,7 +363,7 @@ act_remote_touch(GSimpleAction *a, GVariant *v, gpointer data)
 {
     BkApp *app = data;
     const char *mode = g_variant_get_string(v, NULL);
-    if (strcmp(mode, "off") && strcmp(mode, "exclusive") && strcmp(mode, "shared"))
+    if (strcmp(mode, "off") && strcmp(mode, "exclusive") && strcmp(mode, "shared") && strcmp(mode, "mouse"))
         return; /* valor desconhecido: o estado não muda */
     g_simple_action_set_state(a, v);
     if (strcmp(app->cfg.remote_touch, mode)) {
@@ -533,7 +533,7 @@ main(int argc, char **argv)
         { "release", 0, 0, G_OPTION_ARG_NONE, NULL, "Soltar todas as teclas e botões (emergência)", NULL },
         { "daemon", 0, 0, G_OPTION_ARG_NONE, NULL, "Iniciar oculto (início da sessão)", NULL },
         { "remote-touch", 0, 0, G_OPTION_ARG_STRING, NULL,
-          "Toque do celular pelo Moonlight no controle na tela: off, exclusive (só o controle), shared", "MODO" },
+          "Toque do celular pelo Moonlight no controle na tela: off, exclusive (só o controle), mouse (também o mouse com tudo oculto), shared", "MODO" },
         { "output", 0, 0, G_OPTION_ARG_STRING, NULL, "Monitor do controle na tela (conector, como DP-1; vazio = principal)",
           "CONECTOR" },
         { "quit", 0, 0, G_OPTION_ARG_NONE, NULL, "Encerrar", NULL },

@@ -63,7 +63,7 @@
 | Mover e redimensionar o teclado | arraste o título; a barra de baixo (ou a borda da moldura) muda o tamanho |
 | Soltar tudo (emergência) | menu do dockapp, ou `big-keyboard --release` |
 | Controle no monitor transmitido | `big-keyboard --output=DP-1` (vazio = principal) |
-| Toque do celular pelo Moonlight | **Configurações > Celular**, ou `big-keyboard --remote-touch=exclusive` (padrão), `shared` ou `off` |
+| Toque do celular pelo Moonlight | **Configurações > Celular**, ou `big-keyboard --remote-touch=exclusive` (padrão), `mouse`, `shared` ou `off` |
 | Estilo e modelo do controle na tela | **Configurações > Controle na tela** (prévia ao vivo) |
 
 Fica residente desde o login (`big-keyboard --daemon`, autostart só no Window Maker e no wlmaker), parado
@@ -246,9 +246,11 @@ Sobre a janela do teclado, as teclas ganham dos controles que ficam embaixo dela
 | Só o teclado | **touchpad** | arrastar um dedo move o ponteiro; um toque rápido é o clique esquerdo onde o ponteiro estiver; parar o dedo meio segundo e então movê-lo arrasta com o botão apertado |
 | Teclado e controle juntos | **toque direto** | o ponteiro vai até o dedo e clica com o botão esquerdo ali; arrastar arrasta |
 | Nos dois | | com um dedo na tela, um toque com outro dedo é o **clique direito**; dois dedos juntos **rolam** |
+| Teclado e controle ocultos (modo `mouse`) | **toque direto** | a tela inteira é o mouse; é o que o Big Remote Play pede no wlmaker, que ignora o toque do Sunshine |
 
 Também dá para fixar *Sempre touchpad*, *Sempre toque direto* ou desligar, e ajustar a velocidade do touchpad.
-O mouse só age no modo `exclusive` (padrão): no `shared` o compositor também receberia os dedos, e o clique
+O mouse só age nos modos `exclusive` (padrão) e `mouse` (o `exclusive` que continua lendo o celular com
+o teclado e o controle ocultos): no `shared` o compositor também receberia os dedos, e o clique
 sairia dobrado. O ponteiro vem do `zwlr_virtual_pointer_v1` (Wayland, preso ao monitor transmitido) ou do
 XTest (X11).
 

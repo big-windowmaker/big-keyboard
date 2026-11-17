@@ -144,3 +144,40 @@ bk_tm_cancel(BkTouchMouse *m, const BkTmSink *sink)
     m->n = 0;
     m->scrolling = m->consumed = m->right_done = false;
 }
+
+/* ---- quando o mouse age ------------------------------------------------ */
+
+bool
+bk_tm_reads(const char *remote_touch, bool keyboard, bool controller)
+{
+    if (!strcmp(remote_touch, "off"))
+        return false;
+    return !strcmp(remote_touch, "mouse") || keyboard || controller;
+}
+
+bool
+bk_tm_exclusive(const char *remote_touch)
+{
+    return !strcmp(remote_touch, "exclusive") || !strcmp(remote_touch, "mouse");
+}
+
+int
+bk_tm_mode_for(const char *remote_touch, const char *remote_mouse, bool grabbed, bool keyboard, bool controller,
+               bool pointer)
+{
+    if (!strcmp(remote_mouse, "off") || !grabbed || !pointer)
+        return -1;
+    if (keyboard) {
+        if (!strcmp(remote_mouse, "touchpad"))
+            return BKTM_TOUCHPAD;
+        if (!strcmp(remote_mouse, "direct"))
+            return BKTM_DIRECT;
+        return controller ? BKTM_DIRECT : BKTM_TOUCHPAD;
+    }
+    /* só o controle aberto: tocar fora dos controles não faz nada (no meio
+     * do jogo, um clique perdido atrapalha) */
+    if (controller || strcmp(remote_touch, "mouse"))
+        return -1;
+    /* nada aberto: a tela inteira é o mouse, como uma tela de toque */
+    return !strcmp(remote_mouse, "touchpad") ? BKTM_TOUCHPAD : BKTM_DIRECT;
+}
