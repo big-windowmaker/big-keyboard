@@ -192,10 +192,10 @@ main(void)
         CHECK(!bk_tm_reads("off", true, true, true), "off: nunca");
         CHECK(bk_tm_exclusive("mouse") && bk_tm_exclusive("exclusive") && !bk_tm_exclusive("shared"),
               "mouse agarra o dispositivo como o exclusive");
-        CHECK(bk_tm_mode_for("mouse", "auto", true, false, false, true) == BKTM_DIRECT,
-              "tudo oculto: toque direto na tela inteira");
-        CHECK(bk_tm_mode_for("mouse", "touchpad", true, false, false, true) == BKTM_TOUCHPAD,
-              "tudo oculto respeita Sempre touchpad");
+        CHECK(bk_tm_mode_for("mouse", "auto", true, false, false, true) == BKTM_TOUCHPAD,
+              "tudo oculto: touchpad na tela inteira (arrastar move o ponteiro)");
+        CHECK(bk_tm_mode_for("mouse", "direct", true, false, false, true) == BKTM_DIRECT,
+              "tudo oculto respeita Sempre toque direto");
         CHECK(bk_tm_mode_for("exclusive", "auto", true, false, false, true) == -1,
               "exclusive com tudo oculto: nada (o desktop recebe o toque)");
         CHECK(bk_tm_mode_for("mouse", "auto", true, false, true, true) == -1,

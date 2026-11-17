@@ -246,7 +246,7 @@ Sobre a janela do teclado, as teclas ganham dos controles que ficam embaixo dela
 | Só o teclado | **touchpad** | arrastar um dedo move o ponteiro; um toque rápido é o clique esquerdo onde o ponteiro estiver; parar o dedo meio segundo e então movê-lo arrasta com o botão apertado |
 | Teclado e controle juntos | **toque direto** | o ponteiro vai até o dedo e clica com o botão esquerdo ali; arrastar arrasta |
 | Nos dois | | com um dedo na tela, um toque com outro dedo é o **clique direito**; dois dedos juntos **rolam** |
-| Teclado e controle ocultos (modo `mouse`) | **toque direto** | a tela inteira é o mouse; é o que o Big Remote Play pede no wlmaker, que ignora o toque do Sunshine |
+| Teclado e controle ocultos (modo `mouse`) | **touchpad** | a tela inteira é um touchpad: arrastar o dedo move o ponteiro, um toque rápido clica; é o que o Big Remote Play pede no wlmaker, que ignora o toque do Sunshine |
 
 Também dá para fixar *Sempre touchpad*, *Sempre toque direto* ou desligar, e ajustar a velocidade do touchpad.
 O mouse só age nos modos `exclusive` (padrão) e `mouse` (o `exclusive` que continua lendo o celular com

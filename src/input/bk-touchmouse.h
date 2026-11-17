@@ -19,7 +19,8 @@
  *
  * Com o teclado e o controle ocultos, só no modo de toque remoto "mouse"
  * (o desktop ignora o touchscreen do Sunshine, como o wlmaker), todo dedo
- * vira o mouse em toque direto: sem isso o ponteiro pararia.
+ * vira o mouse em touchpad (arrastar move o ponteiro; com Sempre toque
+ * direto, o ponteiro vai até o dedo): sem isso o ponteiro pararia.
  *
  * Nos dois: com um dedo na tela, um toque rápido de um segundo dedo é o
  * clique direito (onde o ponteiro está), e o primeiro dedo, ao sair, não

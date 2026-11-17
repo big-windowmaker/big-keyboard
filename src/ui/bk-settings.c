@@ -655,7 +655,7 @@ page_remote(Settings *s)
             "• Só o controle na tela aberto: tocar fora dos controles não faz nada (no meio do jogo, um clique "
             "perdido atrapalha).\n"
             "• Teclado e controle ocultos, no modo <b>Também o mouse com os dois ocultos</b> (o Big Remote Play "
-            "usa no wlmaker, que ignora o toque do Sunshine): <b>toque direto</b> na tela inteira.");
+            "usa no wlmaker, que ignora o toque do Sunshine): <b>touchpad</b> na tela inteira.");
     note(p, "<small>O teclado abre no monitor transmitido enquanto um celular estiver conectado. O monitor é o "
             "do controle na tela (o Big Remote Play o escolhe; na linha de comando, <tt>--output</tt>).</small>");
     return p;
