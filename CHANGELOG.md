@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.4 (2026-11-17)
+
+- **Teclado e controle ocultos: touchpad**. No modo de toque remoto
+  `mouse`, com os dois ocultos, a tela do celular agora é um touchpad:
+  arrastar o dedo move o ponteiro de onde ele está, um toque rápido é o
+  clique esquerdo, segurar meio segundo e arrastar arrasta, um toque com
+  outro dedo é o clique direito e dois dedos rolam. No 0.2.3 era toque
+  direto (o ponteiro pulava para o dedo), que continua com *Sempre toque
+  direto*.
+
 ## 0.2.3 (2026-11-17)
 
 - **Mouse do celular com o teclado e o controle ocultos**: novo modo de

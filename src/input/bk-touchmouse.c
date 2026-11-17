@@ -178,6 +178,9 @@ bk_tm_mode_for(const char *remote_touch, const char *remote_mouse, bool grabbed,
      * do jogo, um clique perdido atrapalha) */
     if (controller || strcmp(remote_touch, "mouse"))
         return -1;
-    /* nada aberto: a tela inteira é o mouse, como uma tela de toque */
-    return !strcmp(remote_mouse, "touchpad") ? BKTM_TOUCHPAD : BKTM_DIRECT;
+    /* nada aberto: a tela inteira é um touchpad (arrastar move o ponteiro),
+     * a não ser com Sempre toque direto. Pedido de 2026-11-17: no toque
+     * direto o ponteiro pulava para o dedo; com tudo oculto se usa como o
+     * touchpad de um notebook. */
+    return !strcmp(remote_mouse, "direct") ? BKTM_DIRECT : BKTM_TOUCHPAD;
 }
