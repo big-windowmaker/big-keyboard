@@ -78,8 +78,10 @@ void bk_tm_cancel(BkTouchMouse *m, const BkTmSink *sink);
  * remote_touch: off | exclusive | shared | mouse. "mouse" é o exclusive que
  * continua lendo o celular com o teclado e o controle ocultos. */
 
-/* Ler o touchscreen do celular agora? */
-bool bk_tm_reads(const char *remote_touch, bool keyboard, bool controller);
+/* Ler o touchscreen do celular agora? Com tudo oculto, só no modo "mouse" e
+ * com um ponteiro para mover: sem ele, agarrar o dispositivo só jogaria os
+ * dedos fora. */
+bool bk_tm_reads(const char *remote_touch, bool keyboard, bool controller, bool pointer);
 /* Agarrar o dispositivo (nenhum dedo chega ao compositor)? */
 bool bk_tm_exclusive(const char *remote_touch);
 /* O modo do mouse para um dedo fora do teclado e do controle, ou -1

@@ -183,10 +183,13 @@ main(void)
     }
     { /* quando o mouse age: o pedido de 2026-11-17 — teclado e controle
          * ocultos no wlmaker paravam o ponteiro do celular */
-        CHECK(bk_tm_reads("mouse", false, false), "modo mouse: lê o celular com tudo oculto");
-        CHECK(!bk_tm_reads("exclusive", false, false) && bk_tm_reads("exclusive", true, false),
+        CHECK(bk_tm_reads("mouse", false, false, true), "modo mouse: lê o celular com tudo oculto");
+        CHECK(!bk_tm_reads("mouse", false, false, false),
+              "modo mouse sem ponteiro: não agarra o celular com tudo oculto (os dedos iriam fora)");
+        CHECK(bk_tm_reads("mouse", true, false, false), "modo mouse sem ponteiro: o teclado aberto ainda lê");
+        CHECK(!bk_tm_reads("exclusive", false, false, true) && bk_tm_reads("exclusive", true, false, true),
               "exclusive: só com algo aberto (como antes)");
-        CHECK(!bk_tm_reads("off", true, true), "off: nunca");
+        CHECK(!bk_tm_reads("off", true, true, true), "off: nunca");
         CHECK(bk_tm_exclusive("mouse") && bk_tm_exclusive("exclusive") && !bk_tm_exclusive("shared"),
               "mouse agarra o dispositivo como o exclusive");
         CHECK(bk_tm_mode_for("mouse", "auto", true, false, false, true) == BKTM_DIRECT,

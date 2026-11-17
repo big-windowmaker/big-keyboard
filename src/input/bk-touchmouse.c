@@ -148,11 +148,11 @@ bk_tm_cancel(BkTouchMouse *m, const BkTmSink *sink)
 /* ---- quando o mouse age ------------------------------------------------ */
 
 bool
-bk_tm_reads(const char *remote_touch, bool keyboard, bool controller)
+bk_tm_reads(const char *remote_touch, bool keyboard, bool controller, bool pointer)
 {
     if (!strcmp(remote_touch, "off"))
         return false;
-    return !strcmp(remote_touch, "mouse") || keyboard || controller;
+    return keyboard || controller || (!strcmp(remote_touch, "mouse") && pointer);
 }
 
 bool

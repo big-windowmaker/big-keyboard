@@ -345,7 +345,8 @@ on_sync(gpointer data)
     r->sync_id = 0;
     BkApp *app = r->app;
     gboolean off = !strcmp(app->cfg.remote_touch, "off");
-    gboolean want = bk_tm_reads(app->cfg.remote_touch, bk_osk_visible(app->osk), bk_overlay_visible(app->overlay));
+    gboolean want = bk_tm_reads(app->cfg.remote_touch, bk_osk_visible(app->osk), bk_overlay_visible(app->overlay),
+                                bk_inject_has_pointer(app->inject));
     if (want && !r->running)
         start(r);
     else if (!want && r->running)
