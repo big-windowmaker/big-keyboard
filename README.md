@@ -398,11 +398,14 @@ aplicativo (`io.github.big_windowmaker.BigKeyboard`), que é a única fonte do e
 
 ## Instalar, compilar e testar
 
+No Big WindowMaker ele já vem instalado. Em outro Arch/Manjaro com o repositório
+assinado [`[big-wm]`](https://github.com/big-windowmaker/repo) ativo: `sudo pacman -S big-keyboard`.
+
 O pacote `big-keyboard` do Arch/Manjaro está em [`pkgbuild/PKGBUILD`](pkgbuild/PKGBUILD); o CI compila,
 testa, empacota e roda o `namcap` a cada push (o artefato do CI é feito do commit, com o dockapp atual).
 
 > [!NOTE]
-> Sem `BIG_KEYBOARD_SOURCE`, o PKGBUILD compila a tag da versão (`v0.2.1`). Para empacotar o que está
+> Sem `BIG_KEYBOARD_SOURCE`, o PKGBUILD compila a tag da versão (`v0.2.4`). Para empacotar o que está
 > no `main` (ou a sua cópia local), aponte para o commit:
 
 ```sh
