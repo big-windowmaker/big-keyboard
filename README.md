@@ -462,7 +462,8 @@ Os laboratórios de X11 e Wayland e as medições estão em [docs/qa-2026-11-14.
   (inputtino, "Touch passthrough") não são aceitos: normalizavam ao desktop inteiro.
 - Ainda não existe teclado e mouse como controle para jogos **locais**; para o xCloud, o Better xCloud faz
   isso no navegador.
-- A interface ainda não usa o gettext (os textos estão em português).
+- Idiomas da interface: inglês (o texto-fonte) e português do Brasil, pelo `LANG` do sistema; outra
+  tradução entra em `po/` (gettext).
 - Toque remoto no modo `shared`: enquanto um celular estiver conectado, uma tela de toque física não opera
   o teclado nem o controle na tela (o compositor entregaria o mesmo dedo do celular de novo, e o programa
   ignora os toques que vêm por ele). No `exclusive`, o padrão, isso não acontece.

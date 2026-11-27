@@ -1,0 +1,1125 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the big-keyboard package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: big-keyboard\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-27 01:44-0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: src/dockapp/bk-dockapp.c:228
+msgid ""
+"On-screen keyboard, physical controller, touch-screen gamepad and game "
+"integration, in the Window Maker style."
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:238
+msgid "Open the _keyboard"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:238
+msgid "Close the _keyboard"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:241
+msgid "Open the on-screen _gamepad"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:242
+msgid "Close the on-screen _gamepad"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:244
+msgid "_Hybrid mode (keyboard and gamepad)"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:245
+msgid "_Choose the gamepad layout…"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:246
+msgid "_Edit the controls…"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:248
+msgid "_Settings…"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:249
+msgid "_Release all (emergency)"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:250
+msgid "He_lp"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:253
+msgid "_About"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:257
+msgid "_Quit Big WM Virtual Keyboard"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:353
+msgid ""
+"<b>Virtual keyboard</b> — Click to open/hide\n"
+"<small>Double-click: settings · right-click: menu</small>"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:356
+msgid ""
+"<b>On-screen gamepad</b> — unavailable\n"
+"<small>No access to /dev/uinput: install steam-devices (or game-devices-"
+"udev).\n"
+"Double-click: settings · right-click: menu</small>"
+msgstr ""
+
+#: src/dockapp/bk-dockapp.c:360
+msgid ""
+"<b>On-screen gamepad</b> — Click to open/hide\n"
+"<small>Double-click: settings · right-click: menu</small>"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:426
+msgid "Xbox"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:426
+msgid "Left stick on top, D-pad below; colored A B X Y; modern look"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:427
+msgid "PlayStation"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:427
+msgid "D-pad on top, sticks side by side below; ✕ ○ □ △"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:428
+msgid "Nintendo Switch"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:428
+msgid "Like the Pro Controller: B A Y X, L R ZL ZR, − + and Home"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:429
+msgid "Retro 16-bit"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:429
+msgid "Large D-pad, four buttons, L and R, no sticks; strong colors"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:430
+msgid "Arcade"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:430
+msgid "Joystick and six buttons in two rows, with a glowing outline"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:431
+msgid "Racing"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:431
+msgid "Steering wheel on the floating stick, large accelerator and brake"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:432
+msgid "Minimal"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:432
+msgid "One floating stick and two buttons, outline only"
+msgstr ""
+
+#: src/gamepad/bk-controls.c:713
+#, c-format
+msgid "no controls in the layout"
+msgstr ""
+
+#: src/ui/bk-app.c:525
+msgid "Show the keyboard"
+msgstr ""
+
+#: src/ui/bk-app.c:526
+msgid "Hide the keyboard"
+msgstr ""
+
+#: src/ui/bk-app.c:527
+msgid "Show or hide the keyboard"
+msgstr ""
+
+#: src/ui/bk-app.c:528
+msgid "Open the settings"
+msgstr ""
+
+#: src/ui/bk-app.c:530
+msgid ""
+"Settings section (general, keyboard, gamepad, overlay, remote, games, "
+"xcloud, lock, advanced)"
+msgstr ""
+
+#: src/ui/bk-app.c:531
+msgid "SECTION"
+msgstr ""
+
+#: src/ui/bk-app.c:532
+msgid "Show or hide the on-screen gamepad"
+msgstr ""
+
+#: src/ui/bk-app.c:533
+msgid "Edit the on-screen gamepad"
+msgstr ""
+
+#: src/ui/bk-app.c:534
+msgid "Keyboard and gamepad together"
+msgstr ""
+
+#: src/ui/bk-app.c:535
+msgid "Release all keys and buttons (emergency)"
+msgstr ""
+
+#: src/ui/bk-app.c:536
+msgid "Start hidden (session start)"
+msgstr ""
+
+#: src/ui/bk-app.c:538
+msgid ""
+"Phone touch through Moonlight on the on-screen gamepad: off, exclusive "
+"(gamepad only), mouse (also the mouse with everything hidden), shared"
+msgstr ""
+
+#: src/ui/bk-app.c:539
+msgid "MODE"
+msgstr ""
+
+#: src/ui/bk-app.c:541
+msgid ""
+"Monitor for the on-screen gamepad (connector, such as DP-1; empty = primary)"
+msgstr ""
+
+#: src/ui/bk-app.c:541
+msgid "CONNECTOR"
+msgstr ""
+
+#: src/ui/bk-app.c:542
+msgid "Quit"
+msgstr ""
+
+#: src/ui/bk-osk.c:357
+msgid "Hide"
+msgstr ""
+
+#: src/ui/bk-osk.c:357
+msgid "Gamepad"
+msgstr ""
+
+#: src/ui/bk-osk.c:357
+msgid "Settings"
+msgstr ""
+
+#: src/ui/bk-osk.c:517 src/ui/bk-osk.c:1423
+msgid "Virtual keyboard"
+msgstr ""
+
+#. o leitor de tela anuncia a janela
+#: src/ui/bk-osk.c:1468
+msgid "On-screen keyboard"
+msgstr ""
+
+#: src/ui/bk-overlay.c:64
+msgid "+ Button"
+msgstr ""
+
+#: src/ui/bk-overlay.c:64
+msgid "+ Stick"
+msgstr ""
+
+#: src/ui/bk-overlay.c:64
+msgid "+ D-pad"
+msgstr ""
+
+#: src/ui/bk-overlay.c:64
+msgid "Remove"
+msgstr ""
+
+#: src/ui/bk-overlay.c:64
+msgid "Function"
+msgstr ""
+
+#: src/ui/bk-overlay.c:64
+msgid "Dead zone"
+msgstr ""
+
+#: src/ui/bk-overlay.c:65
+msgid "Sensitivity"
+msgstr ""
+
+#: src/ui/bk-overlay.c:65 src/ui/bk-settings.c:254
+msgid "Opacity"
+msgstr ""
+
+#: src/ui/bk-overlay.c:65
+msgid "Save"
+msgstr ""
+
+#: src/ui/bk-overlay.c:65
+msgid "Default"
+msgstr ""
+
+#: src/ui/bk-overlay.c:65
+msgid "Done"
+msgstr ""
+
+#: src/ui/bk-overlay.c:270
+msgid "On-screen gamepad editor"
+msgstr ""
+
+#: src/ui/bk-overlay.c:303
+#, c-format
+msgid ""
+"Tap a control to select it; drag to move, the blue handle changes the size. "
+"Opacity %.0f%%."
+msgstr ""
+
+#: src/ui/bk-overlay.c:309
+#, c-format
+msgid "%s — size %.0f%%, dead zone %.0f%%, sensitivity %.1f×, opacity %.0f%%"
+msgstr ""
+
+#: src/ui/bk-overlay.c:324
+#, c-format
+msgid "Limit of %d controls."
+msgstr ""
+
+#: src/ui/bk-overlay.c:370
+#, c-format
+msgid "Could not save: %s"
+msgstr ""
+
+#: src/ui/bk-overlay.c:373
+#, c-format
+msgid "Saved; %d off-screen control was brought back inside."
+msgid_plural "Saved; %d off-screen controls were brought back inside."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/ui/bk-overlay.c:377
+#, c-format
+msgid "Saved to %s."
+msgstr ""
+
+#: src/ui/bk-overlay.c:469
+msgid "The control was going off the screen and was moved back inside."
+msgstr ""
+
+#: src/ui/bk-overlay.c:765
+msgid "Big WM Virtual Keyboard — on-screen gamepad"
+msgstr ""
+
+#: src/ui/bk-settings.c:238 src/ui/bk-settings.c:1074
+msgid "General"
+msgstr ""
+
+#: src/ui/bk-settings.c:238
+msgid ""
+"Big WM Virtual Keyboard stays resident and quiet (using no CPU) so that the "
+"dockapp, the controller and the shortcut open the keyboard instantly."
+msgstr ""
+
+#: src/ui/bk-settings.c:244
+msgid "Start with the session"
+msgstr ""
+
+#: src/ui/bk-settings.c:245
+msgid "Follow Big WindowMaker"
+msgstr ""
+
+#: src/ui/bk-settings.c:245
+msgid "Light (OPENSTEP)"
+msgstr ""
+
+#: src/ui/bk-settings.c:246
+msgid "Dark"
+msgstr ""
+
+#: src/ui/bk-settings.c:247
+msgid "Theme"
+msgstr ""
+
+#: src/ui/bk-settings.c:248
+msgid "Independent (keyboard and gamepad together)"
+msgstr ""
+
+#: src/ui/bk-settings.c:249
+msgid "Exclusive (opening one hides the other)"
+msgstr ""
+
+#: src/ui/bk-settings.c:250
+msgid "Display mode"
+msgstr ""
+
+#: src/ui/bk-settings.c:250
+msgid "Applies to the dockapp buttons, the menu and the command line"
+msgstr ""
+
+#: src/ui/bk-settings.c:252
+msgid "Key size"
+msgstr ""
+
+#: src/ui/bk-settings.c:252
+msgid "Larger keys help with touch and accessibility"
+msgstr ""
+
+#: src/ui/bk-settings.c:254
+msgid "Needs a compositor (picom on X11; wlmaker on Wayland)"
+msgstr ""
+
+#: src/ui/bk-settings.c:256
+msgid ""
+"<small>Language: the system one (LANG). Screen scale: the monitor's, "
+"automatic.</small>"
+msgstr ""
+
+#: src/ui/bk-settings.c:275 src/ui/bk-settings.c:1074
+msgid "Keyboard"
+msgstr ""
+
+#: src/ui/bk-settings.c:275
+msgid ""
+"Click, tap or use the controller. Modifiers (Shift, Ctrl, Alt, AltGr, "
+"Super): one tap applies to the next key, two taps lock it (green LED), the "
+"third releases it. Fn shows F1–F12 and navigation; ☺ shows symbols and "
+"emojis."
+msgstr ""
+
+#: src/ui/bk-settings.c:278
+msgid "System layout"
+msgstr ""
+
+#: src/ui/bk-settings.c:278
+msgid "Portuguese (ABNT2)"
+msgstr ""
+
+#: src/ui/bk-settings.c:278
+msgid "English (US)"
+msgstr ""
+
+#: src/ui/bk-settings.c:279
+msgid "English (US international)"
+msgstr ""
+
+#: src/ui/bk-settings.c:280 src/ui/bk-settings.c:834
+msgid "Layout"
+msgstr ""
+
+#: src/ui/bk-settings.c:281
+msgid "Floating window, with a frame (move and resize)"
+msgstr ""
+
+#: src/ui/bk-settings.c:282
+msgid "Docked at the bottom, full screen width (like on a phone)"
+msgstr ""
+
+#: src/ui/bk-settings.c:283
+msgid "Window"
+msgstr ""
+
+#: src/ui/bk-settings.c:283
+msgid ""
+"Floating: drag it by the title and resize it by the bottom edge; the "
+"position and size are saved. Docked: takes the bottom of the whole screen."
+msgstr ""
+
+#: src/ui/bk-settings.c:286
+msgid "Like the other windows"
+msgstr ""
+
+#: src/ui/bk-settings.c:287
+msgid "Above windows (recommended)"
+msgstr ""
+
+#: src/ui/bk-settings.c:288
+msgid "Above everything, even games, videos and full-screen presentations"
+msgstr ""
+
+#: src/ui/bk-settings.c:290
+msgid "Stay on top"
+msgstr ""
+
+#: src/ui/bk-settings.c:290
+msgid "On Wayland the keyboard always stays above regular windows"
+msgstr ""
+
+#: src/ui/bk-settings.c:292
+msgid "Open when tapping a text field"
+msgstr ""
+
+#: src/ui/bk-settings.c:292
+msgid ""
+"Like on a phone: the keyboard appears when a field you type in gets the "
+"focus (through accessibility, AT-SPI)"
+msgstr ""
+
+#: src/ui/bk-settings.c:295
+msgid "Close when leaving the text field"
+msgstr ""
+
+#: src/ui/bk-settings.c:295
+msgid "Only when it opened by itself"
+msgstr ""
+
+#: src/ui/bk-settings.c:296
+msgid "Reserve the keyboard space"
+msgstr ""
+
+#: src/ui/bk-settings.c:296
+msgid "Docked: windows move up so the keyboard does not cover the text field"
+msgstr ""
+
+#: src/ui/bk-settings.c:298
+msgid "Close after Enter"
+msgstr ""
+
+#: src/ui/bk-settings.c:299
+msgid "Repeat delay (ms)"
+msgstr ""
+
+#: src/ui/bk-settings.c:299
+msgid "Holding a key repeats it after this time"
+msgstr ""
+
+#: src/ui/bk-settings.c:301
+msgid "Repeat interval (ms)"
+msgstr ""
+
+#: src/ui/bk-settings.c:302
+msgid "_Restore the window position and size"
+msgstr ""
+
+#: src/ui/bk-settings.c:303
+msgid ""
+"<small>Applications that expose accessibility (GTK, Qt, Firefox, Chromium, "
+"LibreOffice) report when a text field gets the focus. The key size (in "
+"General) applies again when it is changed.</small>"
+msgstr ""
+
+#: src/ui/bk-settings.c:321
+msgid ""
+"No controller connected. Connect one via USB or Bluetooth; it shows up here "
+"right away."
+msgstr ""
+
+#: src/ui/bk-settings.c:373 src/ui/bk-settings.c:1075
+msgid "Physical controller"
+msgstr ""
+
+#: src/ui/bk-settings.c:374
+msgid ""
+"D-pad: cursor from key to key. Sticks (point mode, like the SteamOS "
+"keyboard): the left one points on the left half (blue cursor) and the right "
+"one on the right half (orange); LT and RT press the key on each side."
+msgstr ""
+
+#: src/ui/bk-settings.c:377
+msgid "Use the controller on the keyboard"
+msgstr ""
+
+#: src/ui/bk-settings.c:378
+msgid "Select + Start opens the keyboard"
+msgstr ""
+
+#: src/ui/bk-settings.c:378
+msgid "From anywhere, even with the keyboard closed"
+msgstr ""
+
+#: src/ui/bk-settings.c:380
+msgid "D-pad and sticks (recommended)"
+msgstr ""
+
+#: src/ui/bk-settings.c:381
+msgid "Cursor only (D-pad and left stick)"
+msgstr ""
+
+#: src/ui/bk-settings.c:382
+msgid "Pointing with the sticks only"
+msgstr ""
+
+#: src/ui/bk-settings.c:383
+msgid "Navigation"
+msgstr ""
+
+#: src/ui/bk-settings.c:384
+msgid "Stick dead zone"
+msgstr ""
+
+#: src/ui/bk-settings.c:390
+msgid "Tester: move the sticks and the triggers"
+msgstr ""
+
+#: src/ui/bk-settings.c:392
+msgid ""
+"<b>Buttons on the keyboard</b>\n"
+"A ✕: press the key · B ○: close · X □: delete · Y △: space\n"
+"LB L1: Shift · RB R1: next panel (letters, Fn, symbols) · LT/RT: Shift/AltGr "
+"(or press, in point mode)\n"
+"Start: Enter · Select: switch the layout · L3: Caps · R3: Tab · "
+"Select+Start: open/close"
+msgstr ""
+
+#: src/ui/bk-settings.c:458 src/ui/bk-settings.c:530 src/ui/bk-settings.c:560
+msgid "_Cancel"
+msgstr ""
+
+#: src/ui/bk-settings.c:459
+msgid "_OK"
+msgstr ""
+
+#: src/ui/bk-settings.c:488
+#, c-format
+msgid "%s (copy)"
+msgstr ""
+
+#: src/ui/bk-settings.c:489
+msgid "Duplicate layout"
+msgstr ""
+
+#: src/ui/bk-settings.c:512
+#, c-format
+msgid "Delete the layout “%s”?"
+msgstr ""
+
+#: src/ui/bk-settings.c:529
+msgid "Import layout"
+msgstr ""
+
+#: src/ui/bk-settings.c:530
+msgid "_Import"
+msgstr ""
+
+#: src/ui/bk-settings.c:543
+#, c-format
+msgid "Invalid layout: %s"
+msgstr ""
+
+#: src/ui/bk-settings.c:559
+msgid "Export layout"
+msgstr ""
+
+#: src/ui/bk-settings.c:560
+msgid "_Export"
+msgstr ""
+
+#: src/ui/bk-settings.c:596
+msgid "Off."
+msgstr ""
+
+#: src/ui/bk-settings.c:597
+msgid ""
+"Ready: the phone touch works when the keyboard or the on-screen gamepad is "
+"open."
+msgstr ""
+
+#: src/ui/bk-settings.c:598
+msgid "Open, waiting for a phone (no Sunshine touchscreen connected)."
+msgstr ""
+
+#: src/ui/bk-settings.c:599
+msgid "Phone connected: fingers reach only this (exclusive)."
+msgstr ""
+
+#: src/ui/bk-settings.c:600
+msgid "Phone connected: fingers reach this and also the desktop."
+msgstr ""
+
+#: src/ui/bk-settings.c:601
+msgid ""
+"Phone connected, but another program already grabbed the touch: the mouse by "
+"touch is off."
+msgstr ""
+
+#: src/ui/bk-settings.c:602
+msgid ""
+"No permission to read the phone touch (the package udev rule is missing)."
+msgstr ""
+
+#: src/ui/bk-settings.c:603
+msgid "The phone touch could not be read."
+msgstr ""
+
+#: src/ui/bk-settings.c:617
+#, c-format
+msgid "<b>Now:</b> %s"
+msgstr ""
+
+#: src/ui/bk-settings.c:625 src/ui/bk-settings.c:1076
+msgid "Phone"
+msgstr ""
+
+#: src/ui/bk-settings.c:626
+msgid ""
+"When playing from a phone (Moonlight with native touch, like Big Remote Play "
+"Controller), the fingers arrive through the Sunshine virtual touchscreen. "
+"With the keyboard or the on-screen gamepad open, each finger goes to "
+"whatever is under it: a key, a control or the mouse."
+msgstr ""
+
+#: src/ui/bk-settings.c:638
+msgid "Only the keyboard and the gamepad (recommended)"
+msgstr ""
+
+#: src/ui/bk-settings.c:639
+msgid "Also the mouse with both hidden"
+msgstr ""
+
+#: src/ui/bk-settings.c:639
+msgid "Also the desktop"
+msgstr ""
+
+#: src/ui/bk-settings.c:640 src/ui/bk-settings.c:644
+msgid "Off"
+msgstr ""
+
+#: src/ui/bk-settings.c:641
+msgid "Phone touch"
+msgstr ""
+
+#: src/ui/bk-settings.c:641
+msgid ""
+"In exclusive mode, no finger turns into a click outside (and the mouse by "
+"touch works)"
+msgstr ""
+
+#: src/ui/bk-settings.c:643
+msgid "Automatic (recommended)"
+msgstr ""
+
+#: src/ui/bk-settings.c:643
+msgid "Always touchpad"
+msgstr ""
+
+#: src/ui/bk-settings.c:644
+msgid "Always direct touch"
+msgstr ""
+
+#: src/ui/bk-settings.c:645
+msgid "Mouse by touch"
+msgstr ""
+
+#: src/ui/bk-settings.c:645
+msgid ""
+"Fingers outside the keyboard and the gamepad, with the keyboard open (or "
+"with both hidden, in the Also the mouse mode)"
+msgstr ""
+
+#: src/ui/bk-settings.c:648
+msgid "Touchpad speed"
+msgstr ""
+
+#: src/ui/bk-settings.c:649
+msgid ""
+"<b>Automatic</b>\n"
+"• Only the keyboard open: <b>touchpad</b>. Drag a finger to move the "
+"pointer; a quick tap is a left click wherever the pointer is; hold the "
+"finger still for half a second and drag to drag with the button pressed.\n"
+"• Keyboard and on-screen gamepad together: <b>direct touch</b>. The pointer "
+"goes to the finger and left-clicks there; dragging drags.\n"
+"• In both: with one finger on the screen, a tap with another finger is a "
+"<b>right click</b>; two fingers together scroll the page.\n"
+"• Only the on-screen gamepad open: tapping outside the controls does nothing "
+"(in the middle of a game, a stray click gets in the way).\n"
+"• Keyboard and gamepad hidden, in the <b>Also the mouse with both hidden</b> "
+"mode (Big Remote Play uses it on wlmaker, which ignores the Sunshine touch): "
+"<b>touchpad</b> on the whole screen."
+msgstr ""
+
+#: src/ui/bk-settings.c:662
+msgid ""
+"<small>The keyboard opens on the streamed monitor while a phone is "
+"connected. The monitor is the one of the on-screen gamepad (Big Remote Play "
+"chooses it; on the command line, <tt>--output</tt>).</small>"
+msgstr ""
+
+#. ---- aparência do controle na tela ------------------------------------------
+#. id, rótulo, id, rótulo... NULL; o campo em BkCtlLook (deslocamento e tamanho)
+#: src/ui/bk-settings.c:671
+msgid "Classic (gray bevel, OPENSTEP)"
+msgstr ""
+
+#: src/ui/bk-settings.c:672
+msgid "Modern (dark glass)"
+msgstr ""
+
+#: src/ui/bk-settings.c:672
+msgid "Retro (16-bit, strong colors)"
+msgstr ""
+
+#: src/ui/bk-settings.c:673
+msgid "Neon (glowing outline)"
+msgstr ""
+
+#: src/ui/bk-settings.c:673
+msgid "Minimalist (outline only)"
+msgstr ""
+
+#: src/ui/bk-settings.c:678
+msgid "Blue"
+msgstr ""
+
+#: src/ui/bk-settings.c:678
+msgid "Red"
+msgstr ""
+
+#: src/ui/bk-settings.c:678
+msgid "Green"
+msgstr ""
+
+#: src/ui/bk-settings.c:679
+msgid "Purple"
+msgstr ""
+
+#: src/ui/bk-settings.c:679
+msgid "Orange"
+msgstr ""
+
+#: src/ui/bk-settings.c:679
+msgid "Gray"
+msgstr ""
+
+#: src/ui/bk-settings.c:680
+msgid "Fixed"
+msgstr ""
+
+#: src/ui/bk-settings.c:680
+msgid "Floating (the center goes where the finger touches)"
+msgstr ""
+
+#: src/ui/bk-settings.c:682
+msgid "Cross"
+msgstr ""
+
+#: src/ui/bk-settings.c:682
+msgid "Four arrows"
+msgstr ""
+
+#: src/ui/bk-settings.c:682
+msgid "Disc"
+msgstr ""
+
+#: src/ui/bk-settings.c:683
+msgid "None"
+msgstr ""
+
+#: src/ui/bk-settings.c:683
+msgid "Sink"
+msgstr ""
+
+#: src/ui/bk-settings.c:683
+msgid "Glow"
+msgstr ""
+
+#: src/ui/bk-settings.c:684
+msgid "Ripple"
+msgstr ""
+
+#: src/ui/bk-settings.c:684
+msgid "Shrink"
+msgstr ""
+
+#: src/ui/bk-settings.c:793
+msgid "New layout from the template"
+msgstr ""
+
+#: src/ui/bk-settings.c:801
+#, c-format
+msgid "A layout named “%s” already exists. Choose another name."
+msgstr ""
+
+#: src/ui/bk-settings.c:828 src/ui/bk-settings.c:1075
+msgid "On-screen gamepad"
+msgstr ""
+
+#: src/ui/bk-settings.c:829
+msgid ""
+"Semi-transparent buttons and sticks over the game, for playing on the touch "
+"screen (several fingers at once). Games see a regular controller (Big WM "
+"Virtual Gamepad)."
+msgstr ""
+
+#: src/ui/bk-settings.c:842
+msgid "_Create layout"
+msgstr ""
+
+#: src/ui/bk-settings.c:845
+msgid "New from a template"
+msgstr ""
+
+#: src/ui/bk-settings.c:845
+msgid ""
+"Xbox, PlayStation, Nintendo Switch, retro, arcade, racing or minimal: ready-"
+"made positions and look, in a new layout"
+msgstr ""
+
+#: src/ui/bk-settings.c:853
+msgid "Style"
+msgstr ""
+
+#: src/ui/bk-settings.c:853
+msgid "Buttons"
+msgstr ""
+
+#: src/ui/bk-settings.c:853
+msgid "Accent color"
+msgstr ""
+
+#: src/ui/bk-settings.c:853
+msgid "Stick"
+msgstr ""
+
+#: src/ui/bk-settings.c:853
+msgid "D-pad"
+msgstr ""
+
+#: src/ui/bk-settings.c:853
+msgid "Touch animation"
+msgstr ""
+
+#: src/ui/bk-settings.c:854
+msgid ""
+"Only the names and colors change: the game sees the same buttons in the same "
+"positions"
+msgstr ""
+
+#: src/ui/bk-settings.c:865
+msgid "Opacity (new layouts)"
+msgstr ""
+
+#: src/ui/bk-settings.c:866
+msgid "Control scale"
+msgstr ""
+
+#: src/ui/bk-settings.c:868
+msgid "_Show or hide"
+msgstr ""
+
+#: src/ui/bk-settings.c:869
+msgid "_Edit…"
+msgstr ""
+
+#: src/ui/bk-settings.c:870
+msgid "_Duplicate…"
+msgstr ""
+
+#: src/ui/bk-settings.c:871
+msgid "De_lete"
+msgstr ""
+
+#: src/ui/bk-settings.c:873
+msgid "_Import…"
+msgstr ""
+
+#: src/ui/bk-settings.c:874
+msgid "E_xport…"
+msgstr ""
+
+#: src/ui/bk-settings.c:875
+msgid "_Restore the default"
+msgstr ""
+
+#: src/ui/bk-settings.c:876
+msgid ""
+"<small>In the editor: drag to move, the blue handle changes the size, yellow "
+"guides show the alignment. A control off the screen comes back inside when "
+"saving.</small>"
+msgstr ""
+
+#: src/ui/bk-settings.c:893 src/ui/bk-settings.c:1077
+msgid "Games"
+msgstr ""
+
+#: src/ui/bk-settings.c:893
+msgid ""
+"The virtual controller (uinput) is created when the on-screen gamepad opens "
+"and goes away when it closes: games (native, Steam/Proton, Wine, browsers) "
+"see it as a regular gamepad."
+msgstr ""
+
+#: src/ui/bk-settings.c:895
+msgid "Big WM Virtual Gamepad (recommended)"
+msgstr ""
+
+#: src/ui/bk-settings.c:896
+msgid "Xbox 360 compatible (only for games that require it)"
+msgstr ""
+
+#: src/ui/bk-settings.c:897
+msgid "Virtual controller identity"
+msgstr ""
+
+#: src/ui/bk-settings.c:897
+msgid "Some games only accept known controllers"
+msgstr ""
+
+#: src/ui/bk-settings.c:901
+msgid "accessible (udev uaccess tag)"
+msgstr ""
+
+#: src/ui/bk-settings.c:902
+msgid ""
+"no access — install steam-devices or game-devices-udev (uaccess rule); the "
+"program never runs as root"
+msgstr ""
+
+#: src/ui/bk-settings.c:907
+msgid "_Release everything now (emergency)"
+msgstr ""
+
+#: src/ui/bk-settings.c:908
+msgid ""
+"Releases keys, modifiers and virtual controller buttons; also: big-keyboard "
+"--release"
+msgstr ""
+
+#: src/ui/bk-settings.c:909
+msgid ""
+"<small>Do not use emulation in competitive matches that forbid macros or "
+"virtual input. One virtual controller at a time: close the on-screen gamepad "
+"before another emulation tool.</small>"
+msgstr ""
+
+#: src/ui/bk-settings.c:928
+msgid ""
+"To play games that ask for a controller with keyboard and mouse, Big WM "
+"Virtual Keyboard uses Better xCloud (MIT, redphx) — it already converts "
+"keyboard and mouse into a controller inside the browser. There is no second "
+"competing emulation: choose one."
+msgstr ""
+
+#: src/ui/bk-settings.c:931
+msgid "Better xCloud in the browser (recommended)"
+msgstr ""
+
+#: src/ui/bk-settings.c:932
+msgid "Linux virtual controller (touch screen)"
+msgstr ""
+
+#: src/ui/bk-settings.c:933
+msgid "Mode"
+msgstr ""
+
+#: src/ui/bk-settings.c:934
+msgid "<b>Browsers found:</b> "
+msgstr ""
+
+#: src/ui/bk-settings.c:946
+msgid "none"
+msgstr ""
+
+#: src/ui/bk-settings.c:949
+msgid ""
+"<b>How to install Better xCloud</b> (from official sources only):\n"
+"1. Install a userscript manager in the browser (Violentmonkey or "
+"Tampermonkey).\n"
+"2. Open the official page and install the script with the button there.\n"
+"3. On xbox.com/play, open the Better xCloud settings → Controls → Keyboard "
+"and mouse, and choose a profile (FPS, racing...). The mouse becomes the "
+"right stick with the pointer locked.\n"
+"\n"
+"<b>Warning (November 2026):</b> Better xCloud works on <tt>xbox.com/play</"
+"tt>; if the site takes you to <tt>play.xbox.com</tt>, leave the preview from "
+"the profile menu (“Exit preview”). Fake sites: betterxcloud.com and "
+"betterxcloud.net. Not every game accepts the conversion; respect the rules "
+"of each game."
+msgstr ""
+
+#: src/ui/bk-settings.c:961
+msgid "Official Better _xCloud page"
+msgstr ""
+
+#: src/ui/bk-settings.c:962
+msgid "Open xbox.com/_play"
+msgstr ""
+
+#: src/ui/bk-settings.c:963
+msgid ""
+"<small>No Xbox password, token or cookie goes through Big WM Virtual "
+"Keyboard.</small>"
+msgstr ""
+
+#: src/ui/bk-settings.c:981 src/ui/bk-settings.c:1078
+msgid "Lock screen"
+msgstr ""
+
+#: src/ui/bk-settings.c:982
+msgid ""
+"On the lock screen, the keyboard is part of the locker itself (gtklock "
+"module on Wayland, xsecurelock auth_big_wm on X11) and uses the same "
+"controller reader as this application. For security, this program does not "
+"type on the locked screen: the password never goes through it, nor through "
+"any other process, log or clipboard."
+msgstr ""
+
+#: src/ui/bk-settings.c:986
+msgid ""
+"<b>With a controller:</b> any button opens the keyboard; D-pad/stick move "
+"the cursor, A presses, X deletes, Y space, LB Shift, RB layout, Start "
+"unlocks. On X11, the first button also opens the password dialog."
+msgstr ""
+
+#: src/ui/bk-settings.c:990
+msgid "Open the _lock screen preferences"
+msgstr ""
+
+#: src/ui/bk-settings.c:1002
+msgid "Restore all preferences to the defaults?"
+msgstr ""
+
+#: src/ui/bk-settings.c:1015 src/ui/bk-settings.c:1078
+msgid "Advanced"
+msgstr ""
+
+#: src/ui/bk-settings.c:1018
+#, c-format
+msgid ""
+"<b>Typing into applications:</b> %s\n"
+"<b>Preferences:</b> <tt>%s</tt>\n"
+"<b>On-screen gamepad layouts:</b> <tt>%s/big-keyboard/gamepad-layouts/</tt>\n"
+"<b>Command line:</b> <tt>big-keyboard --toggle | --settings | --gamepad | --"
+"release</tt>"
+msgstr ""
+
+#: src/ui/bk-settings.c:1023
+msgid "Wayland, zwp_virtual_keyboard_v1 protocol"
+msgstr ""
+
+#: src/ui/bk-settings.c:1024
+msgid "X11, XTest extension"
+msgstr ""
+
+#: src/ui/bk-settings.c:1025
+msgid "unavailable (neither XTest nor virtual-keyboard)"
+msgstr ""
+
+#: src/ui/bk-settings.c:1031
+msgid "_Restore all preferences"
+msgstr ""
+
+#: src/ui/bk-settings.c:1064
+msgid "Big WM Virtual Keyboard — Settings"
+msgstr ""

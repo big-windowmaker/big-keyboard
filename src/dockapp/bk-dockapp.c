@@ -31,6 +31,7 @@
 #include <cairo-xlib.h>
 #include <gdk/gdkx.h>
 #include <gio/gio.h>
+#include <glib/gi18n.h>
 #include <gtk/gtk.h>
 #include <locale.h>
 #include <string.h>
@@ -224,8 +225,8 @@ on_about(GtkMenuItem *i, gpointer d)
     (void)d;
     const char *authors[] = { "Big WindowMaker", NULL };
     gtk_show_about_dialog(NULL, "program-name", "Big WM Virtual Keyboard", "version", BK_VERSION, "comments",
-                          "Teclado na tela, controle físico, controle na tela de toque e integração com jogos, "
-                          "no estilo Window Maker.",
+                          _("On-screen keyboard, physical controller, touch-screen gamepad and game integration, in "
+                            "the Window Maker style."),
                           "website", "https://github.com/big-windowmaker/big-keyboard", "license-type",
                           GTK_LICENSE_GPL_2_0, "logo-icon-name", "big-keyboard", "authors", authors, NULL);
 }
@@ -234,26 +235,26 @@ static void
 show_menu(Dock *d)
 {
     GtkWidget *m = gtk_menu_new();
-    item(m, d, strcmp(d->mode, "keyboard") && strcmp(d->mode, "hybrid") ? "Abrir o _teclado" : "Fechar o _teclado",
+    item(m, d, strcmp(d->mode, "keyboard") && strcmp(d->mode, "hybrid") ? _("Open the _keyboard") : _("Close the _keyboard"),
          "toggle", NULL);
     item(m, d,
-         strcmp(d->mode, "gamepad") && strcmp(d->mode, "hybrid") ? "Abrir o _controle na tela"
-                                                                 : "Fechar o _controle na tela",
+         strcmp(d->mode, "gamepad") && strcmp(d->mode, "hybrid") ? _("Open the on-screen _gamepad")
+                                                                 : _("Close the on-screen _gamepad"),
          "gamepad", NULL);
-    item(m, d, "Modo _híbrido (teclado e controle)", "hybrid", NULL);
-    item(m, d, "_Escolher o layout do controle…", "settings", "overlay");
-    item(m, d, "E_ditar os controles…", "edit-gamepad", NULL);
+    item(m, d, _("_Hybrid mode (keyboard and gamepad)"), "hybrid", NULL);
+    item(m, d, _("_Choose the gamepad layout…"), "settings", "overlay");
+    item(m, d, _("_Edit the controls…"), "edit-gamepad", NULL);
     gtk_menu_shell_append(GTK_MENU_SHELL(m), gtk_separator_menu_item_new());
-    item(m, d, "_Configurações…", "settings", "general");
-    item(m, d, "Soltar _tudo (emergência)", "release", NULL);
-    GtkWidget *h = gtk_menu_item_new_with_mnemonic("Aj_uda");
+    item(m, d, _("_Settings…"), "settings", "general");
+    item(m, d, _("_Release all (emergency)"), "release", NULL);
+    GtkWidget *h = gtk_menu_item_new_with_mnemonic(_("He_lp"));
     g_signal_connect(h, "activate", G_CALLBACK(on_help), d);
     gtk_menu_shell_append(GTK_MENU_SHELL(m), h);
-    GtkWidget *a = gtk_menu_item_new_with_mnemonic("_Sobre");
+    GtkWidget *a = gtk_menu_item_new_with_mnemonic(_("_About"));
     g_signal_connect(a, "activate", G_CALLBACK(on_about), d);
     gtk_menu_shell_append(GTK_MENU_SHELL(m), a);
     gtk_menu_shell_append(GTK_MENU_SHELL(m), gtk_separator_menu_item_new());
-    item(m, d, "Sai_r do Big WM Virtual Keyboard", "quit", NULL);
+    item(m, d, _("_Quit Big WM Virtual Keyboard"), "quit", NULL);
     gtk_widget_show_all(m);
     g_signal_connect(m, "selection-done", G_CALLBACK(gtk_widget_destroy), NULL);
     /* O gatilho: um clique na janela raiz (uma janela do GDK, ao contrário
@@ -349,15 +350,15 @@ tip_show(gpointer data)
     }
     const char *text;
     if (h == BK_HALF_KBD)
-        text = "<b>Teclado virtual</b> — Clique para abrir/ocultar\n"
-               "<small>Duplo clique: configurações · botão direito: menu</small>";
+        text = _("<b>Virtual keyboard</b> — Click to open/hide\n"
+                 "<small>Double-click: settings · right-click: menu</small>");
     else if (d->st.disabled[BK_HALF_PAD] && !d->st.active[BK_HALF_PAD])
-        text = "<b>Controle na tela</b> — indisponível\n"
-               "<small>Sem acesso ao /dev/uinput: instale o steam-devices (ou o game-devices-udev).\n"
-               "Duplo clique: configurações · botão direito: menu</small>";
+        text = _("<b>On-screen gamepad</b> — unavailable\n"
+                 "<small>No access to /dev/uinput: install steam-devices (or game-devices-udev).\n"
+                 "Double-click: settings · right-click: menu</small>");
     else
-        text = "<b>Controle na tela</b> — Clique para abrir/ocultar\n"
-               "<small>Duplo clique: configurações · botão direito: menu</small>";
+        text = _("<b>On-screen gamepad</b> — Click to open/hide\n"
+                 "<small>Double-click: settings · right-click: menu</small>");
     gtk_label_set_markup(GTK_LABEL(d->tip_label), text);
     gtk_widget_show_all(d->tip);
     /* abaixo do tile (acima, se não couber no monitor). A posição vem do
@@ -597,6 +598,9 @@ int
 main(int argc, char **argv)
 {
     setlocale(LC_ALL, "");
+    bindtextdomain("big-keyboard", LOCALEDIR);
+    bind_textdomain_codeset("big-keyboard", "UTF-8");
+    textdomain("big-keyboard");
     g_setenv("GDK_BACKEND", "x11", TRUE); /* um dockapp é X11 (no wlmaker, pelo XWayland) */
     gtk_init(&argc, &argv);
     Dock d = { 0 };

@@ -42,6 +42,7 @@
 #include "bk-controls.h"
 
 #include <errno.h>
+#include <glib/gi18n.h>
 #include <glib-unix.h>
 #include <glib/gstdio.h>
 #include <unistd.h>
@@ -60,8 +61,8 @@
 
 typedef enum { TB_ADD_BTN, TB_ADD_STICK, TB_ADD_DPAD, TB_DEL, TB_FUNC, TB_DZ, TB_SENS, TB_OPAC, TB_SAVE,
                TB_RESET, TB_DONE, TB_N } ToolButton;
-static const char *tb_label[TB_N] = { "+ Botão", "+ Analógico", "+ Direcional", "Remover", "Função", "Zona morta",
-                                      "Sensibilidade", "Opacidade", "Salvar", "Padrão", "Concluir" };
+static const char *tb_label[TB_N] = { N_("+ Button"), N_("+ Stick"), N_("+ D-pad"), N_("Remove"), N_("Function"), N_("Dead zone"),
+                                      N_("Sensitivity"), N_("Opacity"), N_("Save"), N_("Default"), N_("Done") };
 
 struct BkOverlay {
     BkApp *app;
@@ -266,7 +267,7 @@ on_draw(GtkWidget *w, cairo_t *cr, gpointer data)
         double x, y, bw, bh;
         tb_rect(ov, 0, &x, &y, &bw, &bh);
         double total = TB_N * (bw + 4) - 4;
-        bk_draw_titlebar(cr, x - 6, y - 26, total + 12, 22, "Editor do controle na tela", 12);
+        bk_draw_titlebar(cr, x - 6, y - 26, total + 12, 22, _("On-screen gamepad editor"), 12);
         cairo_set_source_rgb(cr, 0.667, 0.667, 0.667);
         cairo_rectangle(cr, x - 6, y - 4, total + 12, bh + 30);
         cairo_fill(cr);
@@ -277,7 +278,7 @@ on_draw(GtkWidget *w, cairo_t *cr, gpointer data)
             cairo_rectangle(cr, x, y, bw, bh);
             cairo_fill(cr);
             bk_draw_bevel(cr, x, y, bw, bh, TRUE, FALSE);
-            label(cr, tb_label[i], x + bw / 2, y + bh / 2, bw < 90 ? 9.5 : 11, 0, 0, 0);
+            label(cr, _(tb_label[i]), x + bw / 2, y + bh / 2, bw < 90 ? 9.5 : 11, 0, 0, 0);
         }
         label(cr, ov->status, ov->w / 2.0, y + bh + 12, 11, 0, 0, 0);
     }
@@ -299,13 +300,13 @@ static void
 describe(BkOverlay *ov)
 {
     if (ov->sel < 0) {
-        set_status(ov, "Toque num controle para selecionar; arraste para mover, a alça azul muda o tamanho. "
-                       "Opacidade %.0f%%.",
+        set_status(ov, _("Tap a control to select it; drag to move, the blue handle changes the size. Opacity "
+                         "%.0f%%."),
                    ov->lay.opacity * 100);
         return;
     }
     const BkCtl *c = &ov->lay.c[ov->sel];
-    set_status(ov, "%s — tamanho %.0f%%, zona morta %.0f%%, sensibilidade %.1f×, opacidade %.0f%%", bk_ctl_label(c),
+    set_status(ov, _("%s — size %.0f%%, dead zone %.0f%%, sensitivity %.1f×, opacity %.0f%%"), bk_ctl_label(c),
                c->size * 100, c->deadzone * 100, c->sens, ov->lay.opacity * 100);
 }
 
@@ -320,7 +321,7 @@ editor_button(BkOverlay *ov, int b)
     case TB_ADD_STICK:
     case TB_ADD_DPAD:
         if (ov->lay.n >= BKC_MAX) {
-            set_status(ov, "Limite de %d controles.", BKC_MAX);
+            set_status(ov, _("Limit of %d controls."), BKC_MAX);
             return;
         }
         ov->lay.c[ov->lay.n] = (BkCtl){ b == TB_ADD_BTN ? BKC_BUTTON : b == TB_ADD_STICK ? BKC_STICK : BKC_DPAD,
@@ -366,11 +367,14 @@ editor_button(BkOverlay *ov, int b)
         char *path = bk_ctl_path(ov->lay.name);
         GError *err = NULL;
         if (!bk_ctl_save(&ov->lay, path, &err))
-            set_status(ov, "Não foi possível salvar: %s", err->message);
+            set_status(ov, _("Could not save: %s"), err->message);
         else if (fixed)
-            set_status(ov, "Salvo; %d controle(s) fora da tela foram trazidos para dentro.", fixed);
+            set_status(ov,
+                       ngettext("Saved; %d off-screen control was brought back inside.",
+                                "Saved; %d off-screen controls were brought back inside.", fixed),
+                       fixed);
         else
-            set_status(ov, "Salvo em %s.", path);
+            set_status(ov, _("Saved to %s."), path);
         g_clear_error(&err);
         g_free(path);
         gtk_widget_queue_draw(ov->area);
@@ -462,7 +466,7 @@ static void
 edit_release(BkOverlay *ov)
 {
     if (ov->drag >= 0 && bk_ctl_clamp(&ov->lay.c[ov->drag], ov->w, ov->h, ov->lay.scale))
-        set_status(ov, "O controle saía da tela e voltou para dentro.");
+        set_status(ov, _("The control was going off the screen and was moved back inside."));
     ov->drag = -1;
     ov->resizing = FALSE;
     ov->guide_x = ov->guide_y = -1;
@@ -758,7 +762,7 @@ bk_overlay_new(BkApp *app)
     /* X11: override-redirect (GTK_WINDOW_POPUP), fora das camadas do
      * gerenciador, para ficar acima de um jogo em tela cheia */
     ov->win = gtk_window_new(x11 ? GTK_WINDOW_POPUP : GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(ov->win), "Big WM Virtual Keyboard — controle na tela");
+    gtk_window_set_title(GTK_WINDOW(ov->win), _("Big WM Virtual Keyboard — on-screen gamepad"));
     gtk_application_add_window(app->gtk, GTK_WINDOW(ov->win));
     GdkScreen *scr = gtk_widget_get_screen(ov->win);
     GdkVisual *rgba = gdk_screen_get_rgba_visual(scr);

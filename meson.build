@@ -3,6 +3,7 @@ project('big-keyboard', 'c', version: '0.2.4', license: 'GPL-2.0-or-later', meso
         default_options: ['c_std=gnu11', 'warning_level=2', 'buildtype=debugoptimized'])
 
 cc = meson.get_compiler('c')
+i18n = import('i18n')
 add_project_arguments('-DBK_VERSION="@0@"'.format(meson.project_version()),
                       '-DLOCALEDIR="@0@"'.format(get_option('prefix') / get_option('localedir')),
                       language: 'c')
@@ -84,6 +85,7 @@ if x11.found() and gtk_x11.found()
 endif
 
 subdir('data')
+subdir('po')
 
 foreach t : ['keys', 'geom', 'config', 'controls', 'vpad', 'rtouch', 'touchmouse']
   test(t, executable('test-' + t, 'tests/test-@0@.c'.format(t), dependencies: core_dep))

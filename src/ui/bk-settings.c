@@ -8,6 +8,7 @@
 #include "bk-controls.h"
 
 #include <fcntl.h>
+#include <glib/gi18n.h>
 #include <glib/gstdio.h>
 #include <linux/input.h>
 #include <string.h>
@@ -150,7 +151,7 @@ combo(char *field, size_t len, const char *const *items)
 {
     GtkWidget *w = gtk_combo_box_text_new();
     for (int i = 0; items[i]; i += 2)
-        gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(w), items[i], items[i + 1]);
+        gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(w), items[i], _(items[i + 1]));
     gtk_combo_box_set_active_id(GTK_COMBO_BOX(w), field);
     StrField *f = g_new(StrField, 1);
     f->field = field;
@@ -234,25 +235,25 @@ on_autostart(GtkSwitch *w, GParamSpec *ps, gpointer d)
 static GtkWidget *
 page_general(Settings *s)
 {
-    GtkWidget *p = page("Geral", "O Big WM Virtual Keyboard fica residente e quieto (sem consumir CPU) para o "
-                                 "dockapp, o controle e o atalho abrirem o teclado na hora.");
+    GtkWidget *p = page(_("General"), _("Big WM Virtual Keyboard stays resident and quiet (using no CPU) so that the dockapp, the "
+                                   "controller and the shortcut open the keyboard instantly."));
     GtkWidget *a = gtk_switch_new();
     gtk_switch_set_active(GTK_SWITCH(a), autostart_on());
     gtk_widget_set_halign(a, GTK_ALIGN_START);
     g_signal_connect(a, "notify::active", G_CALLBACK(on_autostart), NULL);
-    row(p, "Iniciar com a sessão", NULL, a);
-    static const char *const themes[] = { "auto", "Acompanhar o Big WindowMaker", "light", "Claro (OPENSTEP)",
-                                          "dark", "Escuro", NULL };
-    row(p, "Tema", NULL, combo(s->app->cfg.theme, sizeof s->app->cfg.theme, themes));
-    static const char *const modes[] = { "independent", "Independente (teclado e controle juntos)", "exclusive",
-                                         "Exclusivo (abrir um oculta o outro)", NULL };
-    row(p, "Modo de exibição", "Vale para os botões do dockapp, o menu e a linha de comando",
+    row(p, _("Start with the session"), NULL, a);
+    static const char *const themes[] = { "auto", N_("Follow Big WindowMaker"), "light", N_("Light (OPENSTEP)"),
+                                          "dark", N_("Dark"), NULL };
+    row(p, _("Theme"), NULL, combo(s->app->cfg.theme, sizeof s->app->cfg.theme, themes));
+    static const char *const modes[] = { "independent", N_("Independent (keyboard and gamepad together)"), "exclusive",
+                                         N_("Exclusive (opening one hides the other)"), NULL };
+    row(p, _("Display mode"), _("Applies to the dockapp buttons, the menu and the command line"),
         combo(s->app->cfg.display_mode, sizeof s->app->cfg.display_mode, modes));
-    row(p, "Tamanho das teclas", "Teclas maiores ajudam no toque e na acessibilidade",
+    row(p, _("Key size"), _("Larger keys help with touch and accessibility"),
         scale(&s->app->cfg.scale, 0.6, 2.0, 0.05));
-    row(p, "Opacidade", "Precisa de um compositor (picom no X11; o wlmaker no Wayland)",
+    row(p, _("Opacity"), _("Needs a compositor (picom on X11; wlmaker on Wayland)"),
         scale(&s->app->cfg.opacity, 0.4, 1.0, 0.05));
-    note(p, "<small>Idioma: o do sistema (LANG). Escala de tela: a do monitor, automática.</small>");
+    note(p, _("<small>Language: the system one (LANG). Screen scale: the monitor's, automatic.</small>"));
     return p;
 }
 
@@ -271,37 +272,37 @@ on_restore_place(GtkButton *b, gpointer data)
 static GtkWidget *
 page_keyboard(Settings *s)
 {
-    GtkWidget *p = page("Teclado", "Clique, toque ou use o controle. Modificadores (Shift, Ctrl, Alt, AltGr, Super): "
-                                   "um toque vale para a próxima tecla, dois toques travam (LED verde), o terceiro "
-                                   "solta. Fn mostra F1–F12 e navegação; ☺ mostra símbolos e emojis.");
-    static const char *const layouts[] = { "auto", "O do sistema", "br", "Português (ABNT2)", "us", "Inglês (US)",
-                                           "us-intl", "Inglês (US internacional)", NULL };
-    row(p, "Layout", NULL, combo(s->app->cfg.layout, sizeof s->app->cfg.layout, layouts));
-    static const char *const wmodes[] = { "floating", "Janela flutuante, com moldura (mover e redimensionar)",
-                                          "docked", "Encaixado embaixo, na largura da tela (como no celular)", NULL };
-    row(p, "Janela", "Flutuante: arraste pelo título e redimensione pela borda de baixo; o lugar e o tamanho "
-                     "ficam gravados. Encaixado: ocupa a parte de baixo da tela inteira.",
+    GtkWidget *p = page(_("Keyboard"), _("Click, tap or use the controller. Modifiers (Shift, Ctrl, Alt, AltGr, Super): one tap "
+                                     "applies to the next key, two taps lock it (green LED), the third releases it. Fn shows "
+                                     "F1–F12 and navigation; ☺ shows symbols and emojis."));
+    static const char *const layouts[] = { "auto", N_("System layout"), "br", N_("Portuguese (ABNT2)"), "us", N_("English (US)"),
+                                           "us-intl", N_("English (US international)"), NULL };
+    row(p, _("Layout"), NULL, combo(s->app->cfg.layout, sizeof s->app->cfg.layout, layouts));
+    static const char *const wmodes[] = { "floating", N_("Floating window, with a frame (move and resize)"),
+                                          "docked", N_("Docked at the bottom, full screen width (like on a phone)"), NULL };
+    row(p, _("Window"), _("Floating: drag it by the title and resize it by the bottom edge; the position and size "
+                       "are saved. Docked: takes the bottom of the whole screen."),
         combo(s->app->cfg.window_mode, sizeof s->app->cfg.window_mode, wmodes));
-    static const char *const stackings[] = { "normal", "Como as outras janelas", "above",
-                                             "Por cima das janelas (recomendado)", "fullscreen",
-                                             "Por cima de tudo, até de jogos, vídeos e apresentações em tela cheia",
+    static const char *const stackings[] = { "normal", N_("Like the other windows"), "above",
+                                             N_("Above windows (recommended)"), "fullscreen",
+                                             N_("Above everything, even games, videos and full-screen presentations"),
                                              NULL };
-    row(p, "Ficar por cima", "No Wayland o teclado sempre fica por cima das janelas comuns",
+    row(p, _("Stay on top"), _("On Wayland the keyboard always stays above regular windows"),
         combo(s->app->cfg.stacking, sizeof s->app->cfg.stacking, stackings));
-    row(p, "Abrir ao tocar num campo de texto", "Como no celular: o teclado aparece quando um campo onde se "
-                                                "digita ganha o foco (pela acessibilidade, AT-SPI)",
+    row(p, _("Open when tapping a text field"), _("Like on a phone: the keyboard appears when a field you type in gets the focus (through "
+                                                  "accessibility, AT-SPI)"),
         sw(&s->app->cfg.auto_show));
-    row(p, "Fechar ao sair do campo de texto", "Só quando ele abriu sozinho", sw(&s->app->cfg.auto_hide));
-    row(p, "Reservar o espaço do teclado", "Encaixado: as janelas sobem para o teclado não cobrir o campo de texto",
+    row(p, _("Close when leaving the text field"), _("Only when it opened by itself"), sw(&s->app->cfg.auto_hide));
+    row(p, _("Reserve the keyboard space"), _("Docked: windows move up so the keyboard does not cover the text field"),
         sw(&s->app->cfg.reserve));
-    row(p, "Fechar depois do Enter", NULL, sw(&s->app->cfg.autohide));
-    row(p, "Atraso da repetição (ms)", "Segurar uma tecla repete depois deste tempo",
+    row(p, _("Close after Enter"), NULL, sw(&s->app->cfg.autohide));
+    row(p, _("Repeat delay (ms)"), _("Holding a key repeats it after this time"),
         spin(&s->app->cfg.repeat_delay, 150, 2000, 50));
-    row(p, "Intervalo da repetição (ms)", NULL, spin(&s->app->cfg.repeat_rate, 20, 500, 10));
-    button(hbox(p), "_Restaurar o lugar e o tamanho da janela", G_CALLBACK(on_restore_place), s);
-    note(p, "<small>Aplicativos que expõem a acessibilidade (GTK, Qt, Firefox, Chromium, LibreOffice) avisam "
-            "quando um campo de texto ganha o foco. O tamanho das teclas (em Geral) volta a valer ao ser "
-            "mudado.</small>");
+    row(p, _("Repeat interval (ms)"), NULL, spin(&s->app->cfg.repeat_rate, 20, 500, 10));
+    button(hbox(p), _("_Restore the window position and size"), G_CALLBACK(on_restore_place), s);
+    note(p, _("<small>Applications that expose accessibility (GTK, Qt, Firefox, Chromium, LibreOffice) "
+              "report when a text field gets the focus. The key size (in General) applies again when it "
+              "is changed.</small>"));
     return p;
 }
 
@@ -317,7 +318,7 @@ list_pads(Settings *s)
         g_string_append_printf(t, "🎮 %s <small>(%s)</small>\n", name, s->app->pad.pad[i].node);
     }
     if (!t->len)
-        g_string_assign(t, "Nenhum controle ligado. Conecte por USB ou Bluetooth; ele aparece aqui na hora.");
+        g_string_assign(t, _("No controller connected. Connect one via USB or Bluetooth; it shows up here right away."));
     gtk_label_set_markup(GTK_LABEL(s->pads_label), t->str);
     g_string_free(t, TRUE);
 }
@@ -369,30 +370,30 @@ bk_settings_pad_event(BkApp *app)
 static GtkWidget *
 page_pad(Settings *s)
 {
-    GtkWidget *p = page("Controle físico",
-                        "Direcional: cursor de tecla em tecla. Analógicos (modo apontar, como o teclado do SteamOS): "
-                        "o esquerdo aponta na metade esquerda (cursor azul) e o direito na direita (laranja); LT e RT "
-                        "apertam a tecla de cada lado.");
-    row(p, "Usar o controle no teclado", NULL, sw(&s->app->cfg.pad));
-    row(p, "Select + Start abre o teclado", "De qualquer lugar, mesmo com o teclado fechado",
+    GtkWidget *p = page(_("Physical controller"),
+                        _("D-pad: cursor from key to key. Sticks (point mode, like the SteamOS keyboard): the left "
+                          "one points on the left half (blue cursor) and the right one on the right half (orange); "
+                          "LT and RT press the key on each side."));
+    row(p, _("Use the controller on the keyboard"), NULL, sw(&s->app->cfg.pad));
+    row(p, _("Select + Start opens the keyboard"), _("From anywhere, even with the keyboard closed"),
         sw(&s->app->cfg.pad_combo));
-    static const char *const modes[] = { "both", "Direcional e analógicos (recomendado)", "cursor",
-                                         "Só cursor (direcional e analógico esquerdo)", "point",
-                                         "Só apontar com os analógicos", NULL };
-    row(p, "Navegação", NULL, combo(s->app->cfg.pad_mode, sizeof s->app->cfg.pad_mode, modes));
-    row(p, "Zona morta dos analógicos", NULL, scale(&s->app->cfg.deadzone, 0.05, 0.6, 0.01));
+    static const char *const modes[] = { "both", N_("D-pad and sticks (recommended)"), "cursor",
+                                         N_("Cursor only (D-pad and left stick)"), "point",
+                                         N_("Pointing with the sticks only"), NULL };
+    row(p, _("Navigation"), NULL, combo(s->app->cfg.pad_mode, sizeof s->app->cfg.pad_mode, modes));
+    row(p, _("Stick dead zone"), NULL, scale(&s->app->cfg.deadzone, 0.05, 0.6, 0.01));
     s->pads_label = note(p, "");
     list_pads(s);
     s->tester = gtk_drawing_area_new();
     gtk_widget_set_size_request(s->tester, -1, 120);
     g_signal_connect(s->tester, "draw", G_CALLBACK(on_tester_draw), s);
-    gtk_widget_set_tooltip_text(s->tester, "Testador: mexa os analógicos e os gatilhos");
+    gtk_widget_set_tooltip_text(s->tester, _("Tester: move the sticks and the triggers"));
     gtk_box_pack_start(GTK_BOX(p), s->tester, FALSE, FALSE, 0);
-    note(p, "<b>Botões no teclado</b>\n"
-            "A ✕: apertar a tecla · B ○: fechar · X □: apagar · Y △: espaço\n"
-            "LB L1: Shift · RB R1: próximo painel (letras, Fn, símbolos) · LT/RT: Shift/AltGr (ou apertar, no "
-            "modo apontar)\n"
-            "Start: Enter · Select: trocar o layout · L3: Caps · R3: Tab · Select+Start: abrir/fechar");
+    note(p, _("<b>Buttons on the keyboard</b>\n"
+              "A ✕: press the key · B ○: close · X □: delete · Y △: space\n"
+              "LB L1: Shift · RB R1: next panel (letters, Fn, symbols) · LT/RT: Shift/AltGr (or press, "
+              "in point mode)\n"
+              "Start: Enter · Select: switch the layout · L3: Caps · R3: Tab · Select+Start: open/close"));
     return p;
 }
 
@@ -454,8 +455,8 @@ on_edit_overlay(GtkButton *b, gpointer data)
 static char *
 ask_name(Settings *s, const char *title, const char *initial)
 {
-    GtkWidget *d = gtk_dialog_new_with_buttons(title, GTK_WINDOW(s->win), GTK_DIALOG_MODAL, "_Cancelar",
-                                               GTK_RESPONSE_CANCEL, "_OK", GTK_RESPONSE_OK, NULL);
+    GtkWidget *d = gtk_dialog_new_with_buttons(title, GTK_WINDOW(s->win), GTK_DIALOG_MODAL, _("_Cancel"),
+                                               GTK_RESPONSE_CANCEL, _("_OK"), GTK_RESPONSE_OK, NULL);
     GtkWidget *e = gtk_entry_new();
     gtk_entry_set_text(GTK_ENTRY(e), initial);
     gtk_entry_set_activates_default(GTK_ENTRY(e), TRUE);
@@ -484,8 +485,8 @@ on_duplicate(GtkButton *b, gpointer data)
 {
     (void)b;
     Settings *s = data;
-    char *init = g_strdup_printf("%s (cópia)", s->app->cfg.overlay_layout);
-    char *name = ask_name(s, "Duplicar layout", init);
+    char *init = g_strdup_printf(_("%s (copy)"), s->app->cfg.overlay_layout);
+    char *name = ask_name(s, _("Duplicate layout"), init);
     g_free(init);
     if (!name)
         return;
@@ -508,7 +509,7 @@ on_delete(GtkButton *b, gpointer data)
     (void)b;
     Settings *s = data;
     GtkWidget *d = gtk_message_dialog_new(GTK_WINDOW(s->win), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION,
-                                          GTK_BUTTONS_OK_CANCEL, "Excluir o layout “%s”?", s->app->cfg.overlay_layout);
+                                          GTK_BUTTONS_OK_CANCEL, _("Delete the layout “%s”?"), s->app->cfg.overlay_layout);
     if (gtk_dialog_run(GTK_DIALOG(d)) == GTK_RESPONSE_OK) {
         char *path = bk_ctl_path(s->app->cfg.overlay_layout);
         g_unlink(path);
@@ -525,8 +526,8 @@ on_import(GtkButton *b, gpointer data)
 {
     (void)b;
     Settings *s = data;
-    GtkFileChooserNative *fc = gtk_file_chooser_native_new("Importar layout", GTK_WINDOW(s->win),
-                                                           GTK_FILE_CHOOSER_ACTION_OPEN, "_Importar", "_Cancelar");
+    GtkFileChooserNative *fc = gtk_file_chooser_native_new(_("Import layout"), GTK_WINDOW(s->win),
+                                                           GTK_FILE_CHOOSER_ACTION_OPEN, _("_Import"), _("_Cancel"));
     if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(fc)) == GTK_RESPONSE_ACCEPT) {
         char *f = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(fc));
         BkCtlLayout l;
@@ -539,7 +540,7 @@ on_import(GtkButton *b, gpointer data)
             g_free(path);
         } else {
             GtkWidget *m = gtk_message_dialog_new(GTK_WINDOW(s->win), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR,
-                                                  GTK_BUTTONS_CLOSE, "Layout inválido: %s", err->message);
+                                                  GTK_BUTTONS_CLOSE, _("Invalid layout: %s"), err->message);
             gtk_dialog_run(GTK_DIALOG(m));
             gtk_widget_destroy(m);
             g_clear_error(&err);
@@ -555,8 +556,8 @@ on_export(GtkButton *b, gpointer data)
 {
     (void)b;
     Settings *s = data;
-    GtkFileChooserNative *fc = gtk_file_chooser_native_new("Exportar layout", GTK_WINDOW(s->win),
-                                                           GTK_FILE_CHOOSER_ACTION_SAVE, "_Exportar", "_Cancelar");
+    GtkFileChooserNative *fc = gtk_file_chooser_native_new(_("Export layout"), GTK_WINDOW(s->win),
+                                                           GTK_FILE_CHOOSER_ACTION_SAVE, _("_Export"), _("_Cancel"));
     char *def = g_strdup_printf("%s.ini", s->app->cfg.overlay_layout);
     gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(fc), def);
     gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(fc), TRUE);
@@ -592,18 +593,18 @@ remote_state_text(const char *st)
     static const struct {
         const char *id, *text;
     } t[] = {
-        { "off", "Desligado." },
-        { "idle", "Pronto: o toque do celular vale quando o teclado ou o controle na tela estiver aberto." },
-        { "waiting", "Aberto, esperando um celular (nenhum touchscreen do Sunshine conectado)." },
-        { "active", "Celular conectado: os dedos chegam só aqui (exclusivo)." },
-        { "shared", "Celular conectado: os dedos chegam aqui e também ao desktop." },
-        { "busy", "Celular conectado, mas outro programa já agarrou o toque: o mouse pelo toque fica desligado." },
-        { "denied", "Sem permissão para ler o toque do celular (falta a regra udev do pacote)." },
-        { "error", "O toque do celular não pôde ser lido." },
+        { "off", N_("Off.") },
+        { "idle", N_("Ready: the phone touch works when the keyboard or the on-screen gamepad is open.") },
+        { "waiting", N_("Open, waiting for a phone (no Sunshine touchscreen connected).") },
+        { "active", N_("Phone connected: fingers reach only this (exclusive).") },
+        { "shared", N_("Phone connected: fingers reach this and also the desktop.") },
+        { "busy", N_("Phone connected, but another program already grabbed the touch: the mouse by touch is off.") },
+        { "denied", N_("No permission to read the phone touch (the package udev rule is missing).") },
+        { "error", N_("The phone touch could not be read.") },
     };
     for (size_t i = 0; i < G_N_ELEMENTS(t); i++)
         if (!strcmp(t[i].id, st))
-            return t[i].text;
+            return _(t[i].text);
     return st;
 }
 
@@ -613,7 +614,7 @@ on_remote_state(GActionGroup *g, const char *name, GVariant *v, gpointer data)
     (void)g;
     (void)name;
     Settings *s = data;
-    char *m = g_markup_printf_escaped("<b>Agora:</b> %s", remote_state_text(g_variant_get_string(v, NULL)));
+    char *m = g_markup_printf_escaped(_("<b>Now:</b> %s"), remote_state_text(g_variant_get_string(v, NULL)));
     gtk_label_set_markup(GTK_LABEL(s->remote_state), m);
     g_free(m);
 }
@@ -621,10 +622,11 @@ on_remote_state(GActionGroup *g, const char *name, GVariant *v, gpointer data)
 static GtkWidget *
 page_remote(Settings *s)
 {
-    GtkWidget *p = page("Celular",
-                        "Jogando pelo celular (Moonlight com toque nativo, como o Big Remote Play Controller), os "
-                        "dedos chegam pelo touchscreen virtual do Sunshine. Com o teclado ou o controle na tela "
-                        "aberto, cada dedo vai para o que estiver embaixo dele: uma tecla, um controle ou o mouse.");
+    GtkWidget *p = page(_("Phone"),
+                        _("When playing from a phone (Moonlight with native touch, like Big Remote Play Controller), "
+                          "the fingers arrive through the Sunshine virtual touchscreen. With the keyboard or the "
+                          "on-screen gamepad open, each finger goes to whatever is under it: a key, a control or the "
+                          "mouse."));
     s->remote_state = note(p, "");
     GVariant *v = g_action_group_get_action_state(G_ACTION_GROUP(s->app->gtk), "remote-touch-status");
     if (v) {
@@ -633,51 +635,53 @@ page_remote(Settings *s)
     }
     s->remote_state_id = g_signal_connect(s->app->gtk, "action-state-changed::remote-touch-status",
                                           G_CALLBACK(on_remote_state), s);
-    static const char *const modes[] = { "exclusive", "Só o teclado e o controle (recomendado)", "mouse",
-                                         "Também o mouse com os dois ocultos", "shared", "Também o desktop",
-                                         "off", "Desligado", NULL };
-    row(p, "Toque do celular", "No exclusivo, nenhum dedo vira clique por fora (e o mouse pelo toque funciona)",
+    static const char *const modes[] = { "exclusive", N_("Only the keyboard and the gamepad (recommended)"), "mouse",
+                                         N_("Also the mouse with both hidden"), "shared", N_("Also the desktop"),
+                                         "off", N_("Off"), NULL };
+    row(p, _("Phone touch"), _("In exclusive mode, no finger turns into a click outside (and the mouse by touch works)"),
         combo(s->app->cfg.remote_touch, sizeof s->app->cfg.remote_touch, modes));
-    static const char *const mice[] = { "auto", "Automático (recomendado)", "touchpad", "Sempre touchpad",
-                                        "direct", "Sempre toque direto", "off", "Desligado", NULL };
-    row(p, "Mouse pelo toque", "Os dedos fora do teclado e do controle, com o teclado aberto (ou com os dois ocultos, "
-                               "no modo Também o mouse)",
+    static const char *const mice[] = { "auto", N_("Automatic (recommended)"), "touchpad", N_("Always touchpad"),
+                                        "direct", N_("Always direct touch"), "off", N_("Off"), NULL };
+    row(p, _("Mouse by touch"), _("Fingers outside the keyboard and the gamepad, with the keyboard open (or with both "
+                                 "hidden, in the Also the mouse mode)"),
         combo(s->app->cfg.remote_mouse, sizeof s->app->cfg.remote_mouse, mice));
-    row(p, "Velocidade do touchpad", NULL, scale(&s->app->cfg.remote_mouse_speed, 0.5, 4.0, 0.1));
-    note(p, "<b>Automático</b>\n"
-            "• Só o teclado aberto: <b>touchpad</b>. Arraste um dedo para mover o ponteiro; um toque rápido é o "
-            "clique esquerdo onde o ponteiro estiver; segure o dedo parado meio segundo e arraste para arrastar "
-            "com o botão apertado.\n"
-            "• Teclado e controle na tela juntos: <b>toque direto</b>. O ponteiro vai até o dedo e clica com o "
-            "botão esquerdo ali; arrastar arrasta.\n"
-            "• Nos dois: com um dedo na tela, um toque com outro dedo é o <b>clique direito</b>; dois dedos "
-            "juntos rolam a página.\n"
-            "• Só o controle na tela aberto: tocar fora dos controles não faz nada (no meio do jogo, um clique "
-            "perdido atrapalha).\n"
-            "• Teclado e controle ocultos, no modo <b>Também o mouse com os dois ocultos</b> (o Big Remote Play "
-            "usa no wlmaker, que ignora o toque do Sunshine): <b>touchpad</b> na tela inteira.");
-    note(p, "<small>O teclado abre no monitor transmitido enquanto um celular estiver conectado. O monitor é o "
-            "do controle na tela (o Big Remote Play o escolhe; na linha de comando, <tt>--output</tt>).</small>");
+    row(p, _("Touchpad speed"), NULL, scale(&s->app->cfg.remote_mouse_speed, 0.5, 4.0, 0.1));
+    note(p, _("<b>Automatic</b>\n"
+              "• Only the keyboard open: <b>touchpad</b>. Drag a finger to move the pointer; a quick tap "
+              "is a left click wherever the pointer is; hold the finger still for half a second and drag "
+              "to drag with the button pressed.\n"
+              "• Keyboard and on-screen gamepad together: <b>direct touch</b>. The pointer goes to the "
+              "finger and left-clicks there; dragging drags.\n"
+              "• In both: with one finger on the screen, a tap with another finger is a <b>right "
+              "click</b>; two fingers together scroll the page.\n"
+              "• Only the on-screen gamepad open: tapping outside the controls does nothing (in the "
+              "middle of a game, a stray click gets in the way).\n"
+              "• Keyboard and gamepad hidden, in the <b>Also the mouse with both hidden</b> mode (Big "
+              "Remote Play uses it on wlmaker, which ignores the Sunshine touch): <b>touchpad</b> on the "
+              "whole screen."));
+    note(p, _("<small>The keyboard opens on the streamed monitor while a phone is connected. The monitor "
+              "is the one of the on-screen gamepad (Big Remote Play chooses it; on the command line, "
+              "<tt>--output</tt>).</small>"));
     return p;
 }
 
 /* ---- aparência do controle na tela ------------------------------------------ */
 
 /* id, rótulo, id, rótulo... NULL; o campo em BkCtlLook (deslocamento e tamanho) */
-static const char *const look_styles[] = { "classic", "Clássico (relevo cinza, OPENSTEP)", "modern",
-                                           "Moderno (vidro escuro)", "retro", "Retrô (16 bits, cores fortes)",
-                                           "neon", "Neon (contorno luminoso)", "minimal", "Minimalista (só o contorno)",
+static const char *const look_styles[] = { "classic", N_("Classic (gray bevel, OPENSTEP)"), "modern",
+                                           N_("Modern (dark glass)"), "retro", N_("Retro (16-bit, strong colors)"),
+                                           "neon", N_("Neon (glowing outline)"), "minimal", N_("Minimalist (outline only)"),
                                            NULL };
 static const char *const look_buttons[] = { "xbox", "Xbox (A B X Y, LB RB, LT RT)", "playstation",
                                             "PlayStation (✕ ○ □ △, L1 R1, L2 R2)", "nintendo",
                                             "Nintendo (B A Y X, L R, ZL ZR)", NULL };
-static const char *const look_accents[] = { "blue",   "Azul",  "red",  "Vermelho", "green", "Verde", "purple",
-                                            "Roxo",   "orange", "Laranja", "gray", "Cinza", NULL };
-static const char *const look_sticks[] = { "fixed", "Fixo", "floating", "Flutuante (o centro vai aonde o dedo encosta)",
+static const char *const look_accents[] = { "blue",   N_("Blue"),  "red",  N_("Red"), "green", N_("Green"), "purple",
+                                            N_("Purple"),   "orange", N_("Orange"), "gray", N_("Gray"), NULL };
+static const char *const look_sticks[] = { "fixed", N_("Fixed"), "floating", N_("Floating (the center goes where the finger touches)"),
                                            NULL };
-static const char *const look_dpads[] = { "cross", "Cruz", "buttons", "Quatro setas", "disc", "Disco", NULL };
-static const char *const look_anims[] = { "none", "Nenhuma",  "sink",   "Afundar",  "glow", "Brilho",
-                                          "ripple", "Onda", "bounce", "Encolher", NULL };
+static const char *const look_dpads[] = { "cross", N_("Cross"), "buttons", N_("Four arrows"), "disc", N_("Disc"), NULL };
+static const char *const look_anims[] = { "none", N_("None"),  "sink",   N_("Sink"),  "glow", N_("Glow"),
+                                          "ripple", N_("Ripple"), "bounce", N_("Shrink"), NULL };
 
 static char *
 look_field(BkCtlLook *k, int i, size_t *len)
@@ -786,7 +790,7 @@ on_from_template(GtkButton *b, gpointer data)
     BkCtlLayout l;
     if (!id || !bk_ctl_template(&l, id))
         return;
-    char *name = ask_name(s, "Novo layout a partir do modelo", l.name);
+    char *name = ask_name(s, _("New layout from the template"), _(l.name));
     if (!name)
         return;
     g_strlcpy(l.name, name, sizeof l.name);
@@ -794,7 +798,7 @@ on_from_template(GtkButton *b, gpointer data)
     char *path = bk_ctl_path(name);
     if (g_file_test(path, G_FILE_TEST_EXISTS)) { /* nunca sobrescreve um layout do usuário */
         GtkWidget *m = gtk_message_dialog_new(GTK_WINDOW(s->win), GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, GTK_BUTTONS_OK,
-                                              "Já existe um layout chamado “%s”. Escolha outro nome.", name);
+                                              _("A layout named “%s” already exists. Choose another name."), name);
         gtk_dialog_run(GTK_DIALOG(m));
         gtk_widget_destroy(m);
     } else if (bk_ctl_save(&l, path, NULL)) {
@@ -815,62 +819,62 @@ on_template_changed(GtkComboBox *c, gpointer data)
     const char *id = gtk_combo_box_get_active_id(c);
     for (const BkCtlTemplate *t = bk_ctl_templates(); id && t->id; t++)
         if (!strcmp(t->id, id))
-            gtk_widget_set_tooltip_text(GTK_WIDGET(c), t->description);
+            gtk_widget_set_tooltip_text(GTK_WIDGET(c), _(t->description));
 }
 
 static GtkWidget *
 page_overlay(Settings *s)
 {
-    GtkWidget *p = page("Controle na tela",
-                        "Botões e analógicos semitransparentes sobre o jogo, para jogar na tela de toque (vários "
-                        "dedos ao mesmo tempo). Os jogos veem um controle comum (Big WM Virtual Gamepad).");
+    GtkWidget *p = page(_("On-screen gamepad"),
+                        _("Semi-transparent buttons and sticks over the game, for playing on the touch screen "
+                          "(several fingers at once). Games see a regular controller (Big WM Virtual Gamepad)."));
     s->layouts = gtk_combo_box_text_new();
     fill_layouts(s);
     g_signal_connect(s->layouts, "changed", G_CALLBACK(on_layout_changed), s);
-    row(p, "Layout", NULL, s->layouts);
+    row(p, _("Layout"), NULL, s->layouts);
     s->templates = gtk_combo_box_text_new();
     for (const BkCtlTemplate *t = bk_ctl_templates(); t->id; t++)
-        gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(s->templates), t->id, t->name);
+        gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(s->templates), t->id, _(t->name));
     g_signal_connect(s->templates, "changed", G_CALLBACK(on_template_changed), s);
     gtk_combo_box_set_active(GTK_COMBO_BOX(s->templates), 0);
     GtkWidget *th = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     gtk_box_pack_start(GTK_BOX(th), s->templates, FALSE, FALSE, 0);
-    GtkWidget *tb = gtk_button_new_with_mnemonic("_Criar layout");
+    GtkWidget *tb = gtk_button_new_with_mnemonic(_("_Create layout"));
     g_signal_connect(tb, "clicked", G_CALLBACK(on_from_template), s);
     gtk_box_pack_start(GTK_BOX(th), tb, FALSE, FALSE, 0);
-    row(p, "Novo a partir de um modelo", "Xbox, PlayStation, Nintendo Switch, retrô, arcade, corrida ou mínimo: "
-        "posições e aparência prontas, num layout novo", th);
+    row(p, _("New from a template"), _("Xbox, PlayStation, Nintendo Switch, retro, arcade, racing or minimal: ready-made "
+                                           "positions and look, in a new layout"), th);
     s->preview = gtk_drawing_area_new();
     gtk_widget_set_size_request(s->preview, 448, 252);
     gtk_widget_set_halign(s->preview, GTK_ALIGN_START);
     g_signal_connect(s->preview, "draw", G_CALLBACK(on_preview_draw), s);
     gtk_box_pack_start(GTK_BOX(p), s->preview, FALSE, FALSE, 0);
     const char *const *lists[6] = { look_styles, look_buttons, look_accents, look_sticks, look_dpads, look_anims };
-    const char *titles[6] = { "Estilo", "Botões", "Cor de destaque", "Analógico", "Direcional", "Animação ao tocar" };
-    const char *tips[6] = { NULL, "Só os nomes e as cores mudam: o jogo vê os mesmos botões nas mesmas posições", NULL,
+    const char *titles[6] = { _("Style"), _("Buttons"), _("Accent color"), _("Stick"), _("D-pad"), _("Touch animation") };
+    const char *tips[6] = { NULL, _("Only the names and colors change: the game sees the same buttons in the same positions"), NULL,
                             NULL, NULL, NULL };
     for (int i = 0; i < 6; i++) {
         s->look[i] = gtk_combo_box_text_new();
         for (int j = 0; lists[i][j]; j += 2)
-            gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(s->look[i]), lists[i][j], lists[i][j + 1]);
+            gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(s->look[i]), lists[i][j], _(lists[i][j + 1]));
         g_signal_connect(s->look[i], "changed", G_CALLBACK(on_look_changed), s);
         gtk_widget_set_halign(s->look[i], GTK_ALIGN_START);
         row(p, titles[i], tips[i], s->look[i]);
     }
     look_refresh(s);
-    row(p, "Opacidade (novos layouts)", NULL, scale(&s->app->cfg.overlay_opacity, 0.15, 1.0, 0.05));
-    row(p, "Escala dos controles", NULL, scale(&s->app->cfg.overlay_scale, 0.5, 2.0, 0.05));
+    row(p, _("Opacity (new layouts)"), NULL, scale(&s->app->cfg.overlay_opacity, 0.15, 1.0, 0.05));
+    row(p, _("Control scale"), NULL, scale(&s->app->cfg.overlay_scale, 0.5, 2.0, 0.05));
     GtkWidget *h = hbox(p);
-    button(h, "_Mostrar ou ocultar", G_CALLBACK(on_show_overlay), s);
-    button(h, "_Editar…", G_CALLBACK(on_edit_overlay), s);
-    button(h, "_Duplicar…", G_CALLBACK(on_duplicate), s);
-    button(h, "E_xcluir", G_CALLBACK(on_delete), s);
+    button(h, _("_Show or hide"), G_CALLBACK(on_show_overlay), s);
+    button(h, _("_Edit…"), G_CALLBACK(on_edit_overlay), s);
+    button(h, _("_Duplicate…"), G_CALLBACK(on_duplicate), s);
+    button(h, _("De_lete"), G_CALLBACK(on_delete), s);
     h = hbox(p);
-    button(h, "_Importar…", G_CALLBACK(on_import), s);
-    button(h, "Ex_portar…", G_CALLBACK(on_export), s);
-    button(h, "_Restaurar o padrão", G_CALLBACK(on_restore_layout), s);
-    note(p, "<small>No editor: arraste para mover, a alça azul muda o tamanho, guias amarelas mostram o "
-            "alinhamento. Um controle fora da tela volta para dentro ao salvar.</small>");
+    button(h, _("_Import…"), G_CALLBACK(on_import), s);
+    button(h, _("E_xport…"), G_CALLBACK(on_export), s);
+    button(h, _("_Restore the default"), G_CALLBACK(on_restore_layout), s);
+    note(p, _("<small>In the editor: drag to move, the blue handle changes the size, yellow guides show "
+              "the alignment. A control off the screen comes back inside when saving.</small>"));
     return p;
 }
 
@@ -886,27 +890,25 @@ on_release(GtkButton *b, gpointer data)
 static GtkWidget *
 page_games(Settings *s)
 {
-    GtkWidget *p = page("Jogos", "O controle virtual (uinput) é criado ao abrir o controle na tela e some ao "
-                                 "fechá-lo: os jogos (nativos, Steam/Proton, Wine, navegadores) o veem como um "
-                                 "gamepad comum.");
-    static const char *const ids[] = { "generic", "Big WM Virtual Gamepad (recomendado)", "xbox360",
-                                       "Compatível com Xbox 360 (só para jogos que exigem)", NULL };
-    row(p, "Identidade do controle virtual", "Alguns jogos só aceitam controles conhecidos",
+    GtkWidget *p = page(_("Games"), _("The virtual controller (uinput) is created when the on-screen gamepad opens and goes away "
+                                   "when it closes: games (native, Steam/Proton, Wine, browsers) see it as a regular gamepad."));
+    static const char *const ids[] = { "generic", N_("Big WM Virtual Gamepad (recommended)"), "xbox360",
+                                       N_("Xbox 360 compatible (only for games that require it)"), NULL };
+    row(p, _("Virtual controller identity"), _("Some games only accept known controllers"),
         combo(s->app->cfg.identity, sizeof s->app->cfg.identity, ids));
     gboolean ok = access("/dev/uinput", W_OK) == 0;
     char *m = g_strdup_printf("%s <b>/dev/uinput</b>: %s", ok ? "✅" : "⚠️",
-                              ok ? "acessível (tag uaccess do udev)"
-                                 : "sem acesso — instale steam-devices ou game-devices-udev (regra uaccess); "
-                                   "o programa nunca roda como root");
+                              ok ? _("accessible (udev uaccess tag)")
+                                 : _("no access — install steam-devices or game-devices-udev (uaccess rule); the program never "
+                                     "runs as root"));
     note(p, m);
     g_free(m);
     GtkWidget *h = hbox(p);
-    GtkWidget *rb = button(h, "_Soltar tudo agora (emergência)", G_CALLBACK(on_release), s);
-    gtk_widget_set_tooltip_text(rb, "Solta teclas, modificadores e botões do controle virtual; também: "
-                                    "big-keyboard --release");
-    note(p, "<small>Não use emulação em partidas competitivas que proíbam macros ou entradas virtuais. Um "
-            "controle virtual de cada vez: feche o controle na tela antes de outra ferramenta de "
-            "emulação.</small>");
+    GtkWidget *rb = button(h, _("_Release everything now (emergency)"), G_CALLBACK(on_release), s);
+    gtk_widget_set_tooltip_text(rb, _("Releases keys, modifiers and virtual controller buttons; also: big-keyboard --release"));
+    note(p, _("<small>Do not use emulation in competitive matches that forbid macros or virtual input. "
+              "One virtual controller at a time: close the on-screen gamepad before another emulation "
+              "tool.</small>"));
     return p;
 }
 
@@ -923,13 +925,13 @@ static GtkWidget *
 page_xcloud(Settings *s)
 {
     GtkWidget *p = page("Xbox Cloud Gaming",
-                        "Para jogar com teclado e mouse jogos que pedem controle, o Big WM Virtual Keyboard usa o "
-                        "Better xCloud (MIT, redphx) — ele já converte teclado e mouse em controle dentro do "
-                        "navegador. Não há uma segunda emulação concorrente: escolha uma.");
-    static const char *const backends[] = { "better-xcloud", "Better xCloud no navegador (recomendado)", "linux",
-                                            "Controle virtual do Linux (toque na tela)", NULL };
-    row(p, "Modo", NULL, combo(s->app->cfg.xcloud_backend, sizeof s->app->cfg.xcloud_backend, backends));
-    GString *b = g_string_new("<b>Navegadores encontrados:</b> ");
+                        _("To play games that ask for a controller with keyboard and mouse, Big WM Virtual Keyboard "
+                          "uses Better xCloud (MIT, redphx) — it already converts keyboard and mouse into a "
+                          "controller inside the browser. There is no second competing emulation: choose one."));
+    static const char *const backends[] = { "better-xcloud", N_("Better xCloud in the browser (recommended)"), "linux",
+                                            N_("Linux virtual controller (touch screen)"), NULL };
+    row(p, _("Mode"), NULL, combo(s->app->cfg.xcloud_backend, sizeof s->app->cfg.xcloud_backend, backends));
+    GString *b = g_string_new(_("<b>Browsers found:</b> "));
     const char *browsers[] = { "firefox", "chromium", "google-chrome-stable", "brave", "vivaldi-stable",
                                "microsoft-edge-stable" };
     int found = 0;
@@ -941,22 +943,24 @@ page_xcloud(Settings *s)
         }
     }
     if (!found)
-        g_string_append(b, "nenhum");
+        g_string_append(b, _("none"));
     note(p, b->str);
     g_string_free(b, TRUE);
-    note(p, "<b>Como instalar o Better xCloud</b> (só das fontes oficiais):\n"
-            "1. Instale um gerenciador de userscripts no navegador (Violentmonkey ou Tampermonkey).\n"
-            "2. Abra a página oficial e instale o script pelo botão de lá.\n"
-            "3. Em xbox.com/play, abra as configurações do Better xCloud → Controles → Teclado e mouse, e "
-            "escolha um perfil (FPS, corrida...). O mouse vira o analógico direito com o ponteiro preso.\n\n"
-            "<b>Atenção (novembro de 2026):</b> o Better xCloud funciona em <tt>xbox.com/play</tt>; se o site "
-            "levar a <tt>play.xbox.com</tt>, saia da prévia pelo menu do perfil (“Exit preview”). Sites "
-            "falsos: betterxcloud.com e betterxcloud.net. Nem todo jogo aceita a conversão; respeite as regras "
-            "de cada jogo.");
+    note(p, _("<b>How to install Better xCloud</b> (from official sources only):\n"
+              "1. Install a userscript manager in the browser (Violentmonkey or Tampermonkey).\n"
+              "2. Open the official page and install the script with the button there.\n"
+              "3. On xbox.com/play, open the Better xCloud settings → Controls → Keyboard and mouse, and "
+              "choose a profile (FPS, racing...). The mouse becomes the right stick with the pointer "
+              "locked.\n"
+              "\n"
+              "<b>Warning (November 2026):</b> Better xCloud works on <tt>xbox.com/play</tt>; if the "
+              "site takes you to <tt>play.xbox.com</tt>, leave the preview from the profile menu (“Exit "
+              "preview”). Fake sites: betterxcloud.com and betterxcloud.net. Not every game accepts the "
+              "conversion; respect the rules of each game."));
     GtkWidget *h = hbox(p);
-    button(h, "Página oficial do Better _xCloud", G_CALLBACK(on_open_uri), (gpointer) "https://better-xcloud.github.io/");
-    button(h, "Abrir xbox.com/_play", G_CALLBACK(on_open_uri), (gpointer) "https://www.xbox.com/play");
-    note(p, "<small>Nenhuma senha, token ou cookie do Xbox passa pelo Big WM Virtual Keyboard.</small>");
+    button(h, _("Official Better _xCloud page"), G_CALLBACK(on_open_uri), (gpointer) "https://better-xcloud.github.io/");
+    button(h, _("Open xbox.com/_play"), G_CALLBACK(on_open_uri), (gpointer) "https://www.xbox.com/play");
+    note(p, _("<small>No Xbox password, token or cookie goes through Big WM Virtual Keyboard.</small>"));
     return p;
 }
 
@@ -974,16 +978,16 @@ static GtkWidget *
 page_lock(Settings *s)
 {
     (void)s;
-    GtkWidget *p = page("Tela de bloqueio",
-                        "Na tela de bloqueio, o teclado é parte do próprio bloqueador (módulo do gtklock no "
-                        "Wayland, auth_big_wm do xsecurelock no X11) e usa o mesmo leitor de controle deste "
-                        "aplicativo. Por segurança, este programa não digita na tela bloqueada: a senha nunca "
-                        "passa por ele, nem por outro processo, log ou área de transferência.");
-    note(p, "<b>Com um controle:</b> qualquer botão abre o teclado; direcional/analógico movem o cursor, A aperta, "
-            "X apaga, Y espaço, LB Shift, RB layout, Start desbloqueia. No X11, o primeiro botão também abre o "
-            "diálogo de senha.");
+    GtkWidget *p = page(_("Lock screen"),
+                        _("On the lock screen, the keyboard is part of the locker itself (gtklock module on Wayland, "
+                          "xsecurelock auth_big_wm on X11) and uses the same controller reader as this application. "
+                          "For security, this program does not type on the locked screen: the password never goes "
+                          "through it, nor through any other process, log or clipboard."));
+    note(p, _("<b>With a controller:</b> any button opens the keyboard; D-pad/stick move the cursor, A "
+              "presses, X deletes, Y space, LB Shift, RB layout, Start unlocks. On X11, the first button "
+              "also opens the password dialog."));
     GtkWidget *h = hbox(p);
-    button(h, "Abrir as preferências da _tela de bloqueio", G_CALLBACK(on_lock_settings), NULL);
+    button(h, _("Open the _lock screen preferences"), G_CALLBACK(on_lock_settings), NULL);
     return p;
 }
 
@@ -995,7 +999,7 @@ on_defaults(GtkButton *b, gpointer data)
     (void)b;
     Settings *s = data;
     GtkWidget *d = gtk_message_dialog_new(GTK_WINDOW(s->win), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION,
-                                          GTK_BUTTONS_OK_CANCEL, "Restaurar todas as preferências do padrão?");
+                                          GTK_BUTTONS_OK_CANCEL, _("Restore all preferences to the defaults?"));
     if (gtk_dialog_run(GTK_DIALOG(d)) == GTK_RESPONSE_OK) {
         bk_config_defaults(&s->app->cfg);
         save(s);
@@ -1008,22 +1012,23 @@ on_defaults(GtkButton *b, gpointer data)
 static GtkWidget *
 page_advanced(Settings *s)
 {
-    GtkWidget *p = page("Avançado", NULL);
+    GtkWidget *p = page(_("Advanced"), NULL);
     char *cfg = bk_config_path();
     char *m = g_markup_printf_escaped(
-        "<b>Digitação nos aplicativos:</b> %s\n<b>Preferências:</b> <tt>%s</tt>\n"
-        "<b>Layouts do controle na tela:</b> <tt>%s/big-keyboard/gamepad-layouts/</tt>\n"
-        "<b>Linha de comando:</b> <tt>big-keyboard --toggle | --settings | --gamepad | --release</tt>",
+        _("<b>Typing into applications:</b> %s\n"
+          "<b>Preferences:</b> <tt>%s</tt>\n"
+          "<b>On-screen gamepad layouts:</b> <tt>%s/big-keyboard/gamepad-layouts/</tt>\n"
+          "<b>Command line:</b> <tt>big-keyboard --toggle | --settings | --gamepad | --release</tt>"),
         bk_inject_backend(s->app->inject) && !strcmp(bk_inject_backend(s->app->inject), "wayland")
-            ? "Wayland, protocolo zwp_virtual_keyboard_v1"
-        : bk_inject_backend(s->app->inject) ? "X11, extensão XTest"
-                                             : "indisponível (nem XTest nem virtual-keyboard)",
+            ? _("Wayland, zwp_virtual_keyboard_v1 protocol")
+        : bk_inject_backend(s->app->inject) ? _("X11, XTest extension")
+                                             : _("unavailable (neither XTest nor virtual-keyboard)"),
         cfg, g_get_user_data_dir());
     note(p, m);
     g_free(m);
     g_free(cfg);
     GtkWidget *h = hbox(p);
-    button(h, "_Restaurar todas as preferências", G_CALLBACK(on_defaults), s);
+    button(h, _("_Restore all preferences"), G_CALLBACK(on_defaults), s);
     return p;
 }
 
@@ -1056,7 +1061,7 @@ bk_settings_show(BkApp *app, const char *pagename)
     s->app = app;
     s->win = gtk_application_window_new(app->gtk);
     app->settings = s->win;
-    gtk_window_set_title(GTK_WINDOW(s->win), "Big WM Virtual Keyboard — Configurações");
+    gtk_window_set_title(GTK_WINDOW(s->win), _("Big WM Virtual Keyboard — Settings"));
     gtk_window_set_icon_name(GTK_WINDOW(s->win), "big-keyboard");
     gtk_window_set_default_size(GTK_WINDOW(s->win), 860, 600);
     g_signal_connect(s->win, "destroy", G_CALLBACK(on_destroy), s);
@@ -1066,11 +1071,11 @@ bk_settings_show(BkApp *app, const char *pagename)
     struct {
         const char *id, *title;
         GtkWidget *(*build)(Settings *);
-    } pages[] = { { "general", "Geral", page_general },     { "keyboard", "Teclado", page_keyboard },
-                  { "gamepad", "Controle físico", page_pad }, { "overlay", "Controle na tela", page_overlay },
-                  { "remote", "Celular", page_remote },
-                  { "games", "Jogos", page_games },         { "xcloud", "Xbox Cloud Gaming", page_xcloud },
-                  { "lock", "Tela de bloqueio", page_lock }, { "advanced", "Avançado", page_advanced } };
+    } pages[] = { { "general", _("General"), page_general },     { "keyboard", _("Keyboard"), page_keyboard },
+                  { "gamepad", _("Physical controller"), page_pad }, { "overlay", _("On-screen gamepad"), page_overlay },
+                  { "remote", _("Phone"), page_remote },
+                  { "games", _("Games"), page_games },         { "xcloud", "Xbox Cloud Gaming", page_xcloud },
+                  { "lock", _("Lock screen"), page_lock }, { "advanced", _("Advanced"), page_advanced } };
     for (size_t i = 0; i < G_N_ELEMENTS(pages); i++) {
         GtkWidget *sc = gtk_scrolled_window_new(NULL, NULL);
         gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sc), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);

@@ -2,6 +2,7 @@
  * Controle na tela: layout e toques (veja bk-controls.h). */
 #include "bk-controls.h"
 
+#include <glib/gi18n.h>
 #include <glib/gstdio.h>
 #include <linux/input-event-codes.h>
 #include <math.h>
@@ -422,13 +423,13 @@ bk_ctl_dpad_visual(const BkCtlLayout *l, const BkCtlState *s, double w, double h
 /* ---- modelos ------------------------------------------------------------------ */
 
 static const BkCtlTemplate templates[] = {
-    { "xbox", "Xbox", "Analógico esquerdo em cima, direcional embaixo; A B X Y coloridos; visual moderno" },
-    { "playstation", "PlayStation", "Direcional em cima, analógicos lado a lado embaixo; ✕ ○ □ △" },
-    { "switch", "Nintendo Switch", "Como o Pro Controller: B A Y X, L R ZL ZR, − + e Home" },
-    { "retro", "Retrô 16 bits", "Direcional grande, quatro botões, L e R, sem analógicos; cores fortes" },
-    { "arcade", "Arcade", "Alavanca e seis botões em duas fileiras, com contorno luminoso" },
-    { "racing", "Corrida", "Volante no analógico flutuante, acelerador e freio grandes" },
-    { "minimal", "Mínimo", "Um analógico flutuante e dois botões, só o contorno" },
+    { "xbox", N_("Xbox"), N_("Left stick on top, D-pad below; colored A B X Y; modern look") },
+    { "playstation", N_("PlayStation"), N_("D-pad on top, sticks side by side below; ✕ ○ □ △") },
+    { "switch", N_("Nintendo Switch"), N_("Like the Pro Controller: B A Y X, L R ZL ZR, − + and Home") },
+    { "retro", N_("Retro 16-bit"), N_("Large D-pad, four buttons, L and R, no sticks; strong colors") },
+    { "arcade", N_("Arcade"), N_("Joystick and six buttons in two rows, with a glowing outline") },
+    { "racing", N_("Racing"), N_("Steering wheel on the floating stick, large accelerator and brake") },
+    { "minimal", N_("Minimal"), N_("One floating stick and two buttons, outline only") },
     { NULL, NULL, NULL },
 };
 
@@ -709,7 +710,7 @@ bk_ctl_load(BkCtlLayout *l, const char *path, GError **err)
     int version = g_key_file_get_integer(k, "Layout", "Version", NULL);
     g_key_file_free(k);
     if (tmp.n == 0) {
-        g_set_error(err, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_INVALID_VALUE, "nenhum controle no layout");
+        g_set_error(err, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_INVALID_VALUE, _("no controls in the layout"));
         return FALSE;
     }
     if (version < 2)

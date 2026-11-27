@@ -28,6 +28,7 @@
 #include "bk-app.h"
 #include "bk-geom.h"
 
+#include <glib/gi18n.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -353,7 +354,7 @@ draw_frame(BkOsk *osk, cairo_t *cr, const char *title)
 static void
 draw_column(BkOsk *osk, cairo_t *cr)
 {
-    static const char *labels[COL_N] = { "Ocultar", "Controle", "Configurar" };
+    static const char *labels[COL_N] = { N_("Hide"), N_("Gamepad"), N_("Settings") };
     gboolean dark = osk->app->dark;
     for (int i = 0; i < COL_N; i++) {
         if (!osk->col_on[i])
@@ -372,7 +373,7 @@ draw_column(BkOsk *osk, cairo_t *cr)
         PangoFontDescription *fd = pango_font_description_from_string("Sans");
         pango_font_description_set_absolute_size(fd, fs * PANGO_SCALE);
         pango_layout_set_font_description(pl, fd);
-        pango_layout_set_text(pl, labels[i], -1);
+        pango_layout_set_text(pl, _(labels[i]), -1);
         int lw, lh;
         pango_layout_get_pixel_size(pl, &lw, &lh);
         pango_font_description_free(fd);
@@ -387,7 +388,7 @@ draw_column(BkOsk *osk, cairo_t *cr)
         else
             draw_icon_gear(cr, cx, cy, is * 0.9, ink, face);
         if (label)
-            text(cr, labels[i], r->x + r->w / 2 + o, r->y + r->h - lh / 2.0 - 4 + o, fs, FALSE, ink, ink, ink, 0);
+            text(cr, _(labels[i]), r->x + r->w / 2 + o, r->y + r->h - lh / 2.0 - 4 + o, fs, FALSE, ink, ink, ink, 0);
     }
 }
 
@@ -513,7 +514,7 @@ on_draw(GtkWidget *w, cairo_t *cr, gpointer data)
     if (osk->kind == WIN_FLOAT_OWN) {
         const char *panel = osk->st.panel == BK_PANEL_FN ? "Fn" : osk->st.panel == BK_PANEL_SYMBOLS ? "☺" : "";
         char title[96];
-        g_snprintf(title, sizeof title, "Teclado virtual%s%s", *panel ? " · " : "", panel);
+        g_snprintf(title, sizeof title, "%s%s%s", _("Virtual keyboard"), *panel ? " · " : "", panel);
         draw_frame(osk, cr, title);
     }
     draw_column(osk, cr);
@@ -1419,7 +1420,7 @@ build_window(BkOsk *osk)
     GtkWindow *win;
     osk->win = gtk_window_new(osk->override ? GTK_WINDOW_POPUP : GTK_WINDOW_TOPLEVEL);
     win = GTK_WINDOW(osk->win);
-    gtk_window_set_title(win, "Teclado virtual");
+    gtk_window_set_title(win, _("Virtual keyboard"));
     gtk_window_set_role(win, "big-keyboard");
     gtk_window_set_icon_name(win, "big-keyboard");
     gtk_application_add_window(osk->app->gtk, win);
@@ -1464,7 +1465,7 @@ build_window(BkOsk *osk)
     gtk_container_add(GTK_CONTAINER(osk->win), osk->area);
     gtk_widget_set_opacity(osk->win, osk->app->cfg.opacity);
     /* o leitor de tela anuncia a janela */
-    atk_object_set_name(gtk_widget_get_accessible(osk->area), "Teclado na tela");
+    atk_object_set_name(gtk_widget_get_accessible(osk->area), _("On-screen keyboard"));
 #ifdef BK_HAVE_X11
     static gboolean filter_added = FALSE;
     if (osk->override && !filter_added) {
