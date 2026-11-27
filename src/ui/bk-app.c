@@ -522,21 +522,24 @@ main(int argc, char **argv)
     BkApp *app = &the_app;
     app->gtk = gtk_application_new(BK_APP_ID, G_APPLICATION_HANDLES_COMMAND_LINE);
     static const GOptionEntry opts[] = {
-        { "show", 0, 0, G_OPTION_ARG_NONE, NULL, "Mostrar o teclado", NULL },
-        { "hide", 0, 0, G_OPTION_ARG_NONE, NULL, "Ocultar o teclado", NULL },
-        { "toggle", 0, 0, G_OPTION_ARG_NONE, NULL, "Mostrar ou ocultar o teclado", NULL },
-        { "settings", 0, 0, G_OPTION_ARG_NONE, NULL, "Abrir as configurações", NULL },
-        { "page", 0, 0, G_OPTION_ARG_STRING, NULL, "Seção das configurações (general, keyboard, gamepad, overlay, remote, games, xcloud, lock, advanced)", "SEÇÃO" },
-        { "gamepad", 0, 0, G_OPTION_ARG_NONE, NULL, "Mostrar ou ocultar o controle na tela", NULL },
-        { "edit-gamepad", 0, 0, G_OPTION_ARG_NONE, NULL, "Editar o controle na tela", NULL },
-        { "hybrid", 0, 0, G_OPTION_ARG_NONE, NULL, "Teclado e controle juntos", NULL },
-        { "release", 0, 0, G_OPTION_ARG_NONE, NULL, "Soltar todas as teclas e botões (emergência)", NULL },
-        { "daemon", 0, 0, G_OPTION_ARG_NONE, NULL, "Iniciar oculto (início da sessão)", NULL },
+        { "show", 0, 0, G_OPTION_ARG_NONE, NULL, N_("Show the keyboard"), NULL },
+        { "hide", 0, 0, G_OPTION_ARG_NONE, NULL, N_("Hide the keyboard"), NULL },
+        { "toggle", 0, 0, G_OPTION_ARG_NONE, NULL, N_("Show or hide the keyboard"), NULL },
+        { "settings", 0, 0, G_OPTION_ARG_NONE, NULL, N_("Open the settings"), NULL },
+        { "page", 0, 0, G_OPTION_ARG_STRING, NULL,
+          N_("Settings section (general, keyboard, gamepad, overlay, remote, games, xcloud, lock, advanced)"),
+          N_("SECTION") },
+        { "gamepad", 0, 0, G_OPTION_ARG_NONE, NULL, N_("Show or hide the on-screen gamepad"), NULL },
+        { "edit-gamepad", 0, 0, G_OPTION_ARG_NONE, NULL, N_("Edit the on-screen gamepad"), NULL },
+        { "hybrid", 0, 0, G_OPTION_ARG_NONE, NULL, N_("Keyboard and gamepad together"), NULL },
+        { "release", 0, 0, G_OPTION_ARG_NONE, NULL, N_("Release all keys and buttons (emergency)"), NULL },
+        { "daemon", 0, 0, G_OPTION_ARG_NONE, NULL, N_("Start hidden (session start)"), NULL },
         { "remote-touch", 0, 0, G_OPTION_ARG_STRING, NULL,
-          "Toque do celular pelo Moonlight no controle na tela: off, exclusive (só o controle), mouse (também o mouse com tudo oculto), shared", "MODO" },
-        { "output", 0, 0, G_OPTION_ARG_STRING, NULL, "Monitor do controle na tela (conector, como DP-1; vazio = principal)",
-          "CONECTOR" },
-        { "quit", 0, 0, G_OPTION_ARG_NONE, NULL, "Encerrar", NULL },
+          N_("Phone touch through Moonlight on the on-screen gamepad: off, exclusive (gamepad only), "
+             "mouse (also the mouse with everything hidden), shared"), N_("MODE") },
+        { "output", 0, 0, G_OPTION_ARG_STRING, NULL,
+          N_("Monitor for the on-screen gamepad (connector, such as DP-1; empty = primary)"), N_("CONNECTOR") },
+        { "quit", 0, 0, G_OPTION_ARG_NONE, NULL, N_("Quit"), NULL },
         { NULL, 0, 0, 0, NULL, NULL, NULL },
     };
     g_application_add_main_option_entries(G_APPLICATION(app->gtk), opts);

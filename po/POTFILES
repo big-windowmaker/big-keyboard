@@ -1,0 +1,7 @@
+# Arquivos com textos traduzíveis
+src/dockapp/bk-dockapp.c
+src/gamepad/bk-controls.c
+src/ui/bk-app.c
+src/ui/bk-osk.c
+src/ui/bk-overlay.c
+src/ui/bk-settings.c

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 (2026-11-27)
+
+- **Interface em inglês e português**: o texto da interface passa pelo
+  gettext, com o inglês como texto-fonte e a tradução pt_BR completa (241
+  mensagens). Com `LANG=pt_BR.UTF-8` nada muda (as 9 páginas das
+  Configurações conferidas pixel a pixel); em outro idioma, a interface sai
+  em inglês. O nome do layout padrão do controle (`padrão`) continua o mesmo
+  em todos os idiomas, porque é também o nome do arquivo.
+
 ## 0.2.4 (2026-11-17)
 
 - **Teclado e controle ocultos: touchpad**. No modo de toque remoto
