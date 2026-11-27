@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-project('big-keyboard', 'c', version: '0.2.4', license: 'GPL-2.0-or-later', meson_version: '>= 0.61',
+project('big-keyboard', 'c', version: '0.3.0', license: 'GPL-2.0-or-later', meson_version: '>= 0.61',
         default_options: ['c_std=gnu11', 'warning_level=2', 'buildtype=debugoptimized'])
 
 cc = meson.get_compiler('c')
